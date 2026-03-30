@@ -1,8 +1,207 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+@{
+    ViewData["Title"] = "資料同步儀表板";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">資料同步儀表板</h2>
+    <span class="badge bg-secondary">自動更新：每 3 秒</span>
 </div>
+
+<div class="row g-3 mb-4">
+    <!-- 狀態卡片 -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>同步狀態</span>
+                <span id="runningBadge" class="badge bg-secondary">閒置</span>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless mb-0">
+                    <tbody>
+                        <tr>
+                            <td class="text-muted" style="width:120px">上次執行</td>
+                            <td id="lastRunTime">—</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">執行結果</td>
+                            <td id="lastRunMessage">—</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">同步筆數</td>
+                            <td id="lastRowsSynced">—</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">下次自動</td>
+                            <td id="nextRunTime">—</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 控制卡片 -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">控制</div>
+            <div class="card-body d-flex flex-column gap-3">
+                <div>
+                    <button id="syncNowBtn" class="btn btn-primary w-100">
+                        <span id="syncBtnText">立即同步</span>
+                        <span id="syncBtnSpinner" class="spinner-border spinner-border-sm ms-2 d-none" role="status"></span>
+                    </button>
+                </div>
+                <div>
+                    <label class="form-label mb-1 text-muted small">自動同步間隔</label>
+                    <div class="input-group">
+                        <select id="intervalSelect" class="form-select">
+                            <option value="5">5 分鐘</option>
+                            <option value="10">10 分鐘</option>
+                            <option value="15">15 分鐘</option>
+                            <option value="30" selected>30 分鐘</option>
+                            <option value="60">1 小時</option>
+                            <option value="120">2 小時</option>
+                            <option value="480">8 小時</option>
+                        </select>
+                        <button id="setIntervalBtn" class="btn btn-outline-secondary">套用</button>
+                    </div>
+                    <div id="intervalMsg" class="form-text d-none"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 最近同步記錄 -->
+<div class="card">
+    <div class="card-header">最近同步記錄</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>時間</th>
+                        <th>狀態</th>
+                        <th>筆數</th>
+                        <th>訊息</th>
+                    </tr>
+                </thead>
+                <tbody id="logsTable">
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-3">尚無記錄</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    let isRunning = false;
+
+    function formatDateTime(val) {
+        if (!val) return '—';
+        const d = new Date(val);
+        return d.toLocaleString('zh-TW', { hour12: false });
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function updateUI(data) {
+        isRunning = data.isRunning;
+
+        // 狀態 badge
+        const badge = document.getElementById('runningBadge');
+        if (data.isRunning) {
+            badge.className = 'badge bg-warning text-dark';
+            badge.textContent = '執行中…';
+        } else if (data.lastRunSuccess === true) {
+            badge.className = 'badge bg-success';
+            badge.textContent = '成功';
+        } else if (data.lastRunSuccess === false) {
+            badge.className = 'badge bg-danger';
+            badge.textContent = '失敗';
+        } else {
+            badge.className = 'badge bg-secondary';
+            badge.textContent = '閒置';
+        }
+
+        document.getElementById('lastRunTime').textContent    = formatDateTime(data.lastRunTime);
+        document.getElementById('lastRunMessage').textContent = data.lastRunMessage ?? '—';
+        document.getElementById('lastRowsSynced').textContent = data.lastRowsSynced > 0 ? data.lastRowsSynced + ' 筆' : '—';
+        document.getElementById('nextRunTime').textContent    = formatDateTime(data.nextRunTime);
+
+        // 同步按鈕
+        const btn     = document.getElementById('syncNowBtn');
+        const spinner = document.getElementById('syncBtnSpinner');
+        const btnText = document.getElementById('syncBtnText');
+        btn.disabled = data.isRunning;
+        spinner.classList.toggle('d-none', !data.isRunning);
+        btnText.textContent = data.isRunning ? '同步中…' : '立即同步';
+
+        // 間隔選單
+        const sel = document.getElementById('intervalSelect');
+        const opt = sel.querySelector(`option[value="${data.intervalMinutes}"]`);
+        if (opt) sel.value = data.intervalMinutes;
+
+        // 記錄表格
+        const tbody = document.getElementById('logsTable');
+        if (!data.recentLogs || data.recentLogs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">尚無記錄</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.recentLogs.map(log => `
+            <tr>
+                <td class="text-nowrap">${formatDateTime(log.time)}</td>
+                <td>${log.success
+                    ? '<span class="badge bg-success">成功</span>'
+                    : '<span class="badge bg-danger">失敗</span>'}</td>
+                <td>${log.rowsSynced}</td>
+                <td>${escapeHtml(log.message)}</td>
+            </tr>`).join('');
+    }
+
+    async function fetchStatus() {
+        try {
+            const res = await fetch('/api/sync/status');
+            if (res.ok) updateUI(await res.json());
+        } catch (_) { /* 網路暫時中斷，靜默忽略 */ }
+    }
+
+    document.getElementById('syncNowBtn').addEventListener('click', async () => {
+        if (isRunning) return;
+        const res = await fetch('/api/sync/run', { method: 'POST' });
+        if (res.status === 409) {
+            alert('同步正在執行中，請稍後再試。');
+        }
+        await fetchStatus();
+    });
+
+    document.getElementById('setIntervalBtn').addEventListener('click', async () => {
+        const minutes = parseInt(document.getElementById('intervalSelect').value);
+        const res = await fetch('/api/sync/interval', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ minutes })
+        });
+        const msg = document.getElementById('intervalMsg');
+        if (res.ok) {
+            const data = await res.json();
+            msg.textContent = data.message;
+            msg.className = 'form-text text-success';
+        } else {
+            msg.textContent = '設定失敗，請重試。';
+            msg.className = 'form-text text-danger';
+        }
+        msg.classList.remove('d-none');
+        setTimeout(() => msg.classList.add('d-none'), 3000);
+        await fetchStatus();
+    });
+
+    fetchStatus();
+    setInterval(fetchStatus, 3000);
+</script>
+}
