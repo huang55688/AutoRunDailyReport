@@ -31,6 +31,8 @@ CREATE TABLE dbo.MesMachinesSync (
     Process               NVARCHAR(200) NULL,
     MESSubEQNo_String     NVARCHAR(200) NULL,
     MESMachineNo_String   NVARCHAR(200) NULL,
+    CheckTime             DATETIME      NULL,
+    KFPhase_String        NVARCHAR(200) NULL,
     SyncedAt              DATETIME      NOT NULL DEFAULT GETDATE()
 );";
             using var conn = new SqlConnection(_connectionString);
@@ -58,14 +60,16 @@ WHEN MATCHED THEN
         Process             = @Process,
         MESSubEQNo_String   = @MESSubEQNo_String,
         MESMachineNo_String = @MESMachineNo_String,
+        CheckTime           = @CheckTime,
+        KFPhase_String      = @KFPhase_String,
         SyncedAt            = GETDATE()
 WHEN NOT MATCHED THEN
     INSERT (pk_SheetLink, MESMachineName, EQIQDateEE_Time, InLineTestDate_Time,
             MESSubEQName_String, Layout, Line, Vendor, Section, Process,
-            MESSubEQNo_String, MESMachineNo_String, SyncedAt)
+            MESSubEQNo_String, MESMachineNo_String, CheckTime, KFPhase_String, SyncedAt)
     VALUES (@pk_SheetLink, @MESMachineName, @EQIQDateEE_Time, @InLineTestDate_Time,
             @MESSubEQName_String, @Layout, @Line, @Vendor, @Section, @Process,
-            @MESSubEQNo_String, @MESMachineNo_String, GETDATE());";
+            @MESSubEQNo_String, @MESMachineNo_String, @CheckTime, @KFPhase_String, GETDATE());";
 
             using var conn = new SqlConnection(_connectionString);
             await conn.OpenAsync();
