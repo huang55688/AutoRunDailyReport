@@ -102,7 +102,8 @@ WHEN NOT MATCHED THEN
         /// <summary>
         /// 同步完成後呼叫。
         /// 從 MesMachinesSync 計算每個 Line 的 FirstADeadline：
-        ///   排除 Vendor = '易格'，取 MAX(EQIQDateEE_Time, InLineTestDate_Time, CheckTime) + 14 天。
+        ///   排除 Vendor = '易格'，取 MAX(EQIQDateEE_Time, EQIQDateEE_Time_Check) + 14 天。
+        ///   （不含 InLineTestDate_Time，避免重複累加天數）
         /// 只更新 FirstADeadline，不覆蓋手動欄位。
         /// </summary>
         public async Task RecalculateDeadlinesAsync()
@@ -118,12 +119,9 @@ USING (
             MAX(
                 NULLIF(
                     CASE
-                        WHEN ISNULL(EQIQDateEE_Time,   '19000101') >= ISNULL(InLineTestDate_Time, '19000101')
-                         AND ISNULL(EQIQDateEE_Time,   '19000101') >= ISNULL(CheckTime,           '19000101')
-                        THEN ISNULL(EQIQDateEE_Time,   '19000101')
-                        WHEN ISNULL(InLineTestDate_Time,'19000101') >= ISNULL(CheckTime,           '19000101')
-                        THEN ISNULL(InLineTestDate_Time,'19000101')
-                        ELSE ISNULL(CheckTime,          '19000101')
+                        WHEN ISNULL(EQIQDateEE_Time, '19000101') >= ISNULL(EQIQDateEE_Time_Check, '19000101')
+                        THEN ISNULL(EQIQDateEE_Time, '19000101')
+                        ELSE ISNULL(EQIQDateEE_Time_Check,        '19000101')
                     END,
                     CAST('19000101' AS DATETIME)
                 )
@@ -132,8 +130,7 @@ USING (
     FROM dbo.MesMachinesSync
     WHERE (Vendor != N'易格' OR Vendor IS NOT NULL)
       AND (EQIQDateEE_Time IS NOT NULL
-           OR InLineTestDate_Time IS NOT NULL
-           OR CheckTime IS NOT NULL)
+           OR EQIQDateEE_Time_Check IS NOT NULL)
     GROUP BY Line
 ) AS source ON target.Line = source.Line
 WHEN MATCHED THEN

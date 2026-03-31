@@ -1,5 +1,4 @@
-﻿
-using Dapper;
+﻿using Dapper;
 using Microsoft.Data.SqlClient;
 using AutoRunDailyReport.Models;
 
@@ -20,31 +19,33 @@ namespace AutoRunDailyReport.Repositories
         public async Task<IEnumerable<MesMachineDto>> GetAllMesMachinesAsync()
         {
             const string sql = @"
-SELECT
-    A.pk_SheetLink,
-    REPLACE(A.MESMachineName_String, '<br>', '') AS MESMachineName,
-    B.EQIQDateEE_Time,
-    C.InLineTestDate_Time,
-    D.MESSubEQName_String,
-    E.Layout,
-    E.Line,
-    E.Vendor,
-    E.Section,
-    E.Process,
-    F.MESSubEQNo_String,
-    G.MESMachineNo_String,
-    H.CheckTime,
-    I.KFPhase_String
-FROM dbo.C_PC_MESMachineName A
-LEFT JOIN dbo.C_EE_EQIQDate B ON A.pk_SheetLink = B.pk_SheetLink
-LEFT JOIN dbo.C_AIOT_InLineTestDate C ON A.pk_SheetLink = C.pk_SheetLink
-LEFT JOIN dbo.C_PC_MESSubEQName D ON A.pk_SheetLink = D.pk_SheetLink
-LEFT JOIN dbo.C_BasicConfig E ON A.pk_SheetLink = E.fk_SheetLink
-LEFT JOIN dbo.C_PC_MESSubEQNo F ON A.pk_SheetLink = F.pk_SheetLink
-LEFT JOIN dbo.C_PC_MESMachineNo G ON A.pk_SheetLink = G.pk_SheetLink
-LEFT JOIN dbo.C_TimeChecked H ON A.pk_SheetLink = H.pk_SheetLink
-LEFT JOIN dbo.C_PE_KFPhase I ON A.pk_SheetLink = I.pk_SheetLink
-ORDER BY C.InLineTestDate_Time DESC;";
+    SELECT
+        A.pk_SheetLink,
+        REPLACE(A.MESMachineName_String, '<br>', '') AS MESMachineName,
+        B.EQIQDateEE_Time,
+        C.InLineTestDate_Time,
+        D.MESSubEQName_String,
+        E.Layout,
+        E.Line,
+        E.Vendor,
+        E.Section,
+        E.Process,
+        F.MESSubEQNo_String,
+        G.MESMachineNo_String,
+        H.CheckTime AS EQIQDateEE_Time_Check,
+        I.CheckTime AS InLineTestACDDate_Time_Check,
+        J.KFPhase_String
+    FROM dbo.C_PC_MESMachineName A
+    LEFT JOIN dbo.C_EE_EQIQDate B ON A.pk_SheetLink = B.pk_SheetLink
+    LEFT JOIN dbo.C_AIOT_InLineTestDate C ON A.pk_SheetLink = C.pk_SheetLink
+    LEFT JOIN dbo.C_PC_MESSubEQName D ON A.pk_SheetLink = D.pk_SheetLink
+    LEFT JOIN dbo.C_BasicConfig E ON A.pk_SheetLink = E.fk_SheetLink
+    LEFT JOIN dbo.C_PC_MESSubEQNo F ON A.pk_SheetLink = F.pk_SheetLink
+    LEFT JOIN dbo.C_PC_MESMachineNo G ON A.pk_SheetLink = G.pk_SheetLink
+    LEFT JOIN dbo.C_TimeChecked H ON A.pk_SheetLink = H.pk_SheetLink AND H.Field = 'EQIQDateEE_Time'
+    LEFT JOIN dbo.C_TimeChecked I ON A.pk_SheetLink = I.pk_SheetLink AND I.Field = 'InLineTestDate_Time'
+    LEFT JOIN dbo.C_PE_KFPhase J ON A.pk_SheetLink = J.pk_SheetLink
+    ORDER BY C.InLineTestDate_Time DESC;";
 
             using var conn = new SqlConnection(_connectionString);
             return await conn.QueryAsync<MesMachineDto>(sql);
@@ -53,27 +54,33 @@ ORDER BY C.InLineTestDate_Time DESC;";
         public async Task<IEnumerable<MesMachineDto>> GetLatestMesMachinesAsync()
         {
             const string sql = @"
-SELECT TOP 100
-    A.pk_SheetLink,
-    REPLACE(A.MESMachineName_String, '<br>', '') AS MESMachineName,
-    B.EQIQDateEE_Time,
-    C.InLineTestDate_Time,
-    D.MESSubEQName_String,
-    E.Layout,
-    E.Line,
-    E.Vendor,
-    E.Section,
-    E.Process,
-    F.MESSubEQNo_String,
-    G.MESMachineNo_String
-FROM dbo.C_PC_MESMachineName A
-LEFT JOIN dbo.C_EE_EQIQDate B ON A.pk_SheetLink = B.pk_SheetLink
-LEFT JOIN dbo.C_AIOT_InLineTestDate C ON A.pk_SheetLink = C.pk_SheetLink
-LEFT JOIN dbo.C_PC_MESSubEQName D ON A.pk_SheetLink = D.pk_SheetLink
-LEFT JOIN dbo.C_BasicConfig E ON A.pk_SheetLink = E.fk_SheetLink
-LEFT JOIN dbo.C_PC_MESSubEQNo F ON A.pk_SheetLink = F.pk_SheetLink
-LEFT JOIN dbo.C_PC_MESMachineNo G ON A.pk_SheetLink = G.pk_SheetLink
-ORDER BY C.InLineTestDate_Time DESC;";
+    SELECT TOP 100
+        A.pk_SheetLink,
+        REPLACE(A.MESMachineName_String, '<br>', '') AS MESMachineName,
+        B.EQIQDateEE_Time,
+        C.InLineTestDate_Time,
+        D.MESSubEQName_String,
+        E.Layout,
+        E.Line,
+        E.Vendor,
+        E.Section,
+        E.Process,
+        F.MESSubEQNo_String,
+        G.MESMachineNo_String,
+        H.CheckTime AS EQIQDateEE_Time_Check,
+        I.CheckTime AS InLineTestACDDate_Time_Check,
+        J.KFPhase_String
+    FROM dbo.C_PC_MESMachineName A
+    LEFT JOIN dbo.C_EE_EQIQDate B ON A.pk_SheetLink = B.pk_SheetLink
+    LEFT JOIN dbo.C_AIOT_InLineTestDate C ON A.pk_SheetLink = C.pk_SheetLink
+    LEFT JOIN dbo.C_PC_MESSubEQName D ON A.pk_SheetLink = D.pk_SheetLink
+    LEFT JOIN dbo.C_BasicConfig E ON A.pk_SheetLink = E.fk_SheetLink
+    LEFT JOIN dbo.C_PC_MESSubEQNo F ON A.pk_SheetLink = F.pk_SheetLink
+    LEFT JOIN dbo.C_PC_MESMachineNo G ON A.pk_SheetLink = G.pk_SheetLink
+    LEFT JOIN dbo.C_TimeChecked H ON A.pk_SheetLink = H.pk_SheetLink AND H.Field = 'EQIQDateEE_Time'
+    LEFT JOIN dbo.C_TimeChecked I ON A.pk_SheetLink = I.pk_SheetLink AND I.Field = 'InLineTestDate_Time'
+    LEFT JOIN dbo.C_PE_KFPhase J ON A.pk_SheetLink = J.pk_SheetLink
+    ORDER BY C.InLineTestDate_Time DESC;";
 
             using var conn = new SqlConnection(_connectionString);
             return await conn.QueryAsync<MesMachineDto>(sql);

@@ -15,7 +15,8 @@
         public string Process { get; set; }
         public string MESSubEQNo_String { get; set; }
         public string MESMachineNo_String { get; set; }
-        public DateTime? CheckTime { get; set; }
+        public DateTime? EQIQDateEE_Time_Check { get; set; }
+        public DateTime? InLineTestACDDate_Time_Check { get; set; }
         public string KFPhase_String { get; set; }
     }
 
