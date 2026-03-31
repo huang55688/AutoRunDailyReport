@@ -40,6 +40,30 @@ CREATE TABLE dbo.MesMachinesMeta (
             return await conn.QueryAsync<MesMachinesMetaDto>(sql);
         }
 
+        /// <summary>
+        /// 從 MesMachinesSync 取所有 Line，LEFT JOIN MesMachinesMeta。
+        /// 即使尚未手動編輯過的 Line 也會出現。
+        /// </summary>
+        public async Task<IEnumerable<MesMachinesMetaDto>> GetAllLinesWithMetaAsync()
+        {
+            const string sql = @"
+SELECT
+    s.Line,
+    m.State,
+    m.AiotOwner,
+    m.Owner,
+    m.Schedule,
+    m.TestStatus,
+    m.FirstADeadline,
+    m.Illustrate,
+    m.UpdatedAt
+FROM (SELECT DISTINCT Line FROM dbo.MesMachinesSync WHERE Line IS NOT NULL) s
+LEFT JOIN dbo.MesMachinesMeta m ON s.Line = m.Line
+ORDER BY s.Line;";
+            using var conn = new SqlConnection(_connectionString);
+            return await conn.QueryAsync<MesMachinesMetaDto>(sql);
+        }
+
         public async Task<MesMachinesMetaDto?> GetByLineAsync(string line)
         {
             const string sql = "SELECT * FROM dbo.MesMachinesMeta WHERE Line = @Line;";
