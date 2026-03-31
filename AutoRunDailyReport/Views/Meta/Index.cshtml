@@ -1,0 +1,85 @@
+@model IEnumerable<AutoRunDailyReport.Models.MesMachinesMetaDto>
+@{
+    ViewData["Title"] = "Line 資料管理";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Line 資料管理</h2>
+</div>
+
+@if (TempData["Success"] is string success)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @success
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (ViewBag.Warning is string warning)
+{
+    <div class="alert alert-warning">@warning</div>
+}
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Line</th>
+                        <th>1A Deadline</th>
+                        <th>State</th>
+                        <th>AIOT Owner</th>
+                        <th>Owner</th>
+                        <th>Test Status</th>
+                        <th>Schedule</th>
+                        <th>上次更新</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@item.Line</td>
+                            <td class="text-nowrap">
+                                @if (item.FirstADeadline.HasValue)
+                                {
+                                    var daysLeft = (item.FirstADeadline.Value - DateTime.Today).TotalDays;
+                                    var badgeClass = daysLeft < 0 ? "bg-danger"
+                                                   : daysLeft <= 7 ? "bg-warning text-dark"
+                                                   : "bg-success";
+                                    <span class="badge @badgeClass">
+                                        @item.FirstADeadline.Value.ToString("yyyy/MM/dd")
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td>@(item.State ?? "—")</td>
+                            <td>@(item.AiotOwner ?? "—")</td>
+                            <td>@(item.Owner ?? "—")</td>
+                            <td>@(item.TestStatus ?? "—")</td>
+                            <td>@(item.Schedule ?? "—")</td>
+                            <td class="text-muted text-nowrap">
+                                @(item.UpdatedAt?.ToString("yyyy/MM/dd HH:mm") ?? "—")
+                            </td>
+                            <td>
+                                <a asp-action="Edit" asp-route-id="@item.Line"
+                                   class="btn btn-sm btn-outline-primary">編輯</a>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">無資料</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
