@@ -9,6 +9,7 @@ builder.Services.AddControllersWithViews();
 // Repositories（持有 connection string，singleton 即可）
 builder.Services.AddSingleton<MesRepository>();
 builder.Services.AddSingleton<TargetRepository>();
+builder.Services.AddSingleton<MetaRepository>();
 
 // Sync services
 builder.Services.AddSingleton<SyncStatusTracker>();
