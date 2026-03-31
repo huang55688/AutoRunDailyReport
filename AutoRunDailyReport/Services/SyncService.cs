@@ -6,14 +6,16 @@ namespace AutoRunDailyReport.Services
     {
         private readonly MesRepository _source;
         private readonly TargetRepository _target;
+        private readonly MetaRepository _meta;
         private readonly SyncStatusTracker _tracker;
         private readonly ILogger<SyncService> _logger;
 
         public SyncService(MesRepository source, TargetRepository target,
-            SyncStatusTracker tracker, ILogger<SyncService> logger)
+            MetaRepository meta, SyncStatusTracker tracker, ILogger<SyncService> logger)
         {
             _source = source;
             _target = target;
+            _meta = meta;
             _tracker = tracker;
             _logger = logger;
         }
@@ -31,12 +33,17 @@ namespace AutoRunDailyReport.Services
 
             try
             {
+                // Step 1：同步機台資料到目標 DB
                 var data = await _source.GetAllMesMachinesAsync();
                 var list = data.ToList();
                 await _target.UpsertMesMachinesAsync(list);
+                _logger.LogInformation("機台資料同步完成，共 {Count} 筆。", list.Count);
 
-                var message = $"成功同步 {list.Count} 筆資料";
-                _logger.LogInformation(message);
+                // Step 2：重新計算各 Line 的 FirstADeadline
+                await _meta.RecalculateDeadlinesAsync();
+                _logger.LogInformation("FirstADeadline 重新計算完成。");
+
+                var message = $"成功同步 {list.Count} 筆資料，已重算各 Line Deadline";
                 _tracker.RecordResult(true, message, list.Count);
                 return true;
             }
