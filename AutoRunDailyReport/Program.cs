@@ -13,6 +13,7 @@ builder.Services.AddSingleton<MetaRepository>();
 builder.Services.AddSingleton<OneATimeRepository>();
 builder.Services.AddSingleton<PortSettingRepository>();
 builder.Services.AddSingleton<NoticeRepository>();
+builder.Services.AddSingleton<IpRepository>();
 
 // Sync services
 builder.Services.AddSingleton<SyncStatusTracker>();

@@ -1,0 +1,94 @@
+@model AutoRunDailyReport.Models.IpPageViewModel
+@{
+    ViewData["Title"] = "IP設置";
+}
+
+<link rel="stylesheet" href="~/css/ip-page.css" asp-append-version="true" />
+
+<div class="container-fluid ip-page py-4">
+    <div class="ip-page-header mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div class="ip-title-wrap">
+            <span class="ip-title">IP設置</span>
+            <div class="ip-subtitle">按一下按鈕後，只會讀取近 14 天的設備資料並寫入 dbo.ip，不會修改來源的 SERM_EQUIPMENT。</div>
+        </div>
+
+        <form asp-action="ImportRecent" method="post" class="m-0">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="btn ip-import-button">匯入近 14 天資料</button>
+        </form>
+    </div>
+
+    @if (TempData["Success"] is string success)
+    {
+        <div class="ip-alert ip-alert-success mb-3">@success</div>
+    }
+
+    @if (TempData["Error"] is string error)
+    {
+        <div class="ip-alert ip-alert-error mb-3">@error</div>
+    }
+
+    @if (Model.Warnings.Any())
+    {
+        foreach (var warning in Model.Warnings)
+        {
+            <div class="ip-alert ip-alert-warning mb-3">@warning</div>
+        }
+    }
+
+    <div class="ip-table-shell">
+        <div class="table-responsive">
+            <table class="table ip-table mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>LINEID</th>
+                        <th>EQUIPMENTID</th>
+                        <th>EQUIPMENTNO</th>
+                        <th>IP</th>
+                        <th class="text-end">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Items.Any())
+                    {
+                        foreach (var item in Model.Items)
+                        {
+                            <tr>
+                                <td><code>@item.LineId</code></td>
+                                <td><code>@item.EquipmentId</code></td>
+                                <td><code>@item.EquipmentNo</code></td>
+                                <td>
+                                    <form asp-action="SaveIp" method="post" class="ip-inline-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="LineId" value="@item.LineId" />
+                                        <input type="hidden" name="EquipmentId" value="@item.EquipmentId" />
+                                        <input type="hidden" name="EquipmentNo" value="@item.EquipmentNo" />
+                                        <input type="text"
+                                               name="Ip"
+                                               value="@item.Ip"
+                                               class="form-control ip-input"
+                                               placeholder="輸入 IP" />
+                                        <button type="submit" class="btn ip-save-button">儲存</button>
+                                    </form>
+                                </td>
+                                <td class="text-end">
+                                    <span class="ip-status-tag">
+                                        @(string.IsNullOrWhiteSpace(item.Ip) ? "尚未設定" : "已設定")
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="5" class="ip-empty-state">
+                                目前 dbo.ip 沒有資料。你可以先按「匯入近 14 天資料」。
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
