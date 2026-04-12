@@ -8,6 +8,19 @@ namespace AutoRunDailyReport.Repositories
     {
         private const string PortTableName = "PDL_MachineDtl_Port";
 
+        private static readonly string[] MachineDetailColumnCandidates =
+        {
+            "MachineDtlID",
+            "MachineDtlId",
+            "MachineDtIID"
+        };
+
+        private static readonly string[] PortIdColumnCandidates =
+        {
+            "ID",
+            "Id"
+        };
+
         private readonly string _targetConnectionString;
         private readonly string _portMasterConnectionString;
 
@@ -30,35 +43,29 @@ namespace AutoRunDailyReport.Repositories
             var portDatabaseName = await FindPortDatabaseNameAsync();
             if (string.IsNullOrWhiteSpace(portDatabaseName))
             {
-                var fallbackRows = deadlineRows.Select(row => new PortSettingRowViewModel
-                {
-                    Line = row.Line,
-                    OneADeadline = row.OneADeadline,
-                    MESMachineNo_String = row.MESMachineNo_String,
-                    MESSubEQNo_String = row.MESSubEQNo_String
-                }).ToList();
-
-                return (fallbackRows, null);
+                return (BuildFallbackRows(deadlineRows), null);
             }
 
-            var machineDtIIds = deadlineRows
+            var columnNames = await ResolvePortColumnNamesAsync(portDatabaseName);
+
+            var machineDetailIds = deadlineRows
                 .Select(row => row.MESSubEQNo_String?.Trim())
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Select(value => value!)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
 
-            var portLookup = machineDtIIds.Length == 0
+            var portLookup = machineDetailIds.Length == 0
                 ? new Dictionary<string, List<PortSourceRow>>(StringComparer.OrdinalIgnoreCase)
-                : await GetPortLookupAsync(portDatabaseName, machineDtIIds);
+                : await GetPortLookupAsync(portDatabaseName, columnNames, machineDetailIds);
 
             var results = new List<PortSettingRowViewModel>();
 
             foreach (var row in deadlineRows)
             {
-                var machineDtIId = row.MESSubEQNo_String?.Trim();
-                if (string.IsNullOrWhiteSpace(machineDtIId) ||
-                    !portLookup.TryGetValue(machineDtIId, out var portRows) ||
+                var machineDetailId = row.MESSubEQNo_String?.Trim();
+                if (string.IsNullOrWhiteSpace(machineDetailId) ||
+                    !portLookup.TryGetValue(machineDetailId, out var portRows) ||
                     portRows.Count == 0)
                 {
                     results.Add(new PortSettingRowViewModel
@@ -79,7 +86,7 @@ namespace AutoRunDailyReport.Repositories
                         OneADeadline = row.OneADeadline,
                         MESMachineNo_String = row.MESMachineNo_String,
                         MESSubEQNo_String = row.MESSubEQNo_String,
-                        MachineDtIID = portRow.MachineDtIID,
+                        MachineDtIID = portRow.MachineDetailId,
                         PortId = portRow.PortId
                     });
                 }
@@ -117,7 +124,7 @@ namespace AutoRunDailyReport.Repositories
                         Success = false,
                         Step = "PortDatabaseLookup",
                         Message = "找不到包含 dbo.PDL_MachineDtl_Port 的資料庫。",
-                        Detail = "已成功連到 10.26.66.151，但在可存取的資料庫中沒有找到目標資料表。"
+                        Detail = "請確認 10.26.66.151 上是否真的存在這張表，或目前帳號是否有讀取該資料庫的權限。"
                     };
                     return result;
                 }
@@ -126,10 +133,11 @@ namespace AutoRunDailyReport.Repositories
                 {
                     Success = true,
                     Step = "PortDatabaseLookup",
-                    Message = $"已找到資料表所在資料庫：{portDatabaseName}"
+                    Message = $"成功找到 Port 資料庫：{portDatabaseName}"
                 };
 
-                result.PortTableQuery = await TestPortTableQueryAsync(portDatabaseName);
+                var columnNames = await ResolvePortColumnNamesAsync(portDatabaseName);
+                result.PortTableQuery = await TestPortTableQueryAsync(portDatabaseName, columnNames);
                 return result;
             }
             catch (Exception ex)
@@ -179,14 +187,14 @@ WHERE FirstADeadline IS NOT NULL
                 {
                     Success = true,
                     Step = "TargetConnection",
-                    Message = $"成功連線到目標資料庫，{days} 天內到期資料共 {count} 筆。"
+                    Message = $"成功連到目標資料庫，{days} 天內到期資料共 {count} 筆。"
                 };
             }
             catch (Exception ex)
             {
                 return BuildFailureResult(
                     "TargetConnection",
-                    "連線目標資料庫或查詢 MesMachinesMeta 失敗。",
+                    "讀取目標資料庫的 MesMachinesMeta 失敗。",
                     ex);
             }
         }
@@ -204,14 +212,14 @@ WHERE FirstADeadline IS NOT NULL
                 {
                     Success = true,
                     Step = "PortSourceConnection",
-                    Message = $"成功連線到 Port 來源 SQL Server，目前資料庫：{currentDb ?? "未知"}。"
+                    Message = $"成功連到 Port 來源 SQL Server，目前資料庫：{currentDb ?? "未知"}。"
                 };
             }
             catch (Exception ex)
             {
                 return BuildFailureResult(
                     "PortSourceConnection",
-                    "連線到 10.26.66.151 失敗。",
+                    "無法連線到 10.26.66.151。",
                     ex);
             }
         }
@@ -245,59 +253,141 @@ ORDER BY DatabaseName;";
             return await conn.QueryFirstOrDefaultAsync<string>(sql, new { TableName = PortTableName });
         }
 
-        private async Task<ConnectionCheckResult> TestPortTableQueryAsync(string databaseName)
+        private async Task<PortColumnNames> ResolvePortColumnNamesAsync(string databaseName)
+        {
+            var safeDatabaseName = QuoteIdentifier(databaseName);
+            var sql = $@"
+SELECT c.name
+FROM {safeDatabaseName}.sys.columns c
+INNER JOIN {safeDatabaseName}.sys.tables t ON c.object_id = t.object_id
+INNER JOIN {safeDatabaseName}.sys.schemas s ON t.schema_id = s.schema_id
+WHERE s.name = N'dbo'
+  AND t.name = @TableName;";
+
+            using var conn = new SqlConnection(_portMasterConnectionString);
+            var columns = (await conn.QueryAsync<string>(sql, new { TableName = PortTableName })).ToList();
+
+            if (columns.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    $"在 {databaseName}.dbo.{PortTableName} 找不到任何欄位，請確認資料表是否存在且帳號有欄位讀取權限。");
+            }
+
+            var machineDetailColumn = FindFirstMatchingColumn(columns, MachineDetailColumnCandidates);
+            var portIdColumn = FindFirstMatchingColumn(columns, PortIdColumnCandidates);
+
+            if (machineDetailColumn is null)
+            {
+                throw new InvalidOperationException(
+                    $"在 {databaseName}.dbo.{PortTableName} 找不到機台對應欄位。可用欄位：{string.Join(", ", columns)}");
+            }
+
+            if (portIdColumn is null)
+            {
+                throw new InvalidOperationException(
+                    $"在 {databaseName}.dbo.{PortTableName} 找不到 Port ID 欄位。可用欄位：{string.Join(", ", columns)}");
+            }
+
+            return new PortColumnNames
+            {
+                MachineDetailColumn = machineDetailColumn,
+                PortIdColumn = portIdColumn
+            };
+        }
+
+        private async Task<ConnectionCheckResult> TestPortTableQueryAsync(string databaseName, PortColumnNames columnNames)
         {
             try
             {
                 var safeDatabaseName = QuoteIdentifier(databaseName);
+                var machineDetailColumn = QuoteIdentifier(columnNames.MachineDetailColumn);
+                var portIdColumn = QuoteIdentifier(columnNames.PortIdColumn);
+
                 var sql = $@"
-SELECT COUNT(1)
+SELECT TOP (1)
+    CAST({machineDetailColumn} AS NVARCHAR(200)) AS MachineDetailId,
+    CAST({portIdColumn} AS NVARCHAR(100)) AS PortId
 FROM {safeDatabaseName}.dbo.{QuoteIdentifier(PortTableName)};";
 
                 using var conn = new SqlConnection(_portMasterConnectionString);
-                var count = await conn.ExecuteScalarAsync<int>(sql);
+                await conn.QueryFirstOrDefaultAsync(sql);
 
                 return new ConnectionCheckResult
                 {
                     Success = true,
                     Step = "PortTableQuery",
-                    Message = $"成功讀取 {databaseName}.dbo.{PortTableName}，目前共有 {count} 筆資料。"
+                    Message = $"成功讀取 {databaseName}.dbo.{PortTableName}，比對欄位使用 {columnNames.MachineDetailColumn} / {columnNames.PortIdColumn}。"
                 };
             }
             catch (Exception ex)
             {
                 return BuildFailureResult(
                     "PortTableQuery",
-                    $"已找到資料庫 {databaseName}，但查詢 {PortTableName} 失敗。",
+                    $"讀取 {databaseName}.dbo.{PortTableName} 的欄位資料失敗。",
                     ex);
             }
         }
 
         private async Task<Dictionary<string, List<PortSourceRow>>> GetPortLookupAsync(
             string databaseName,
-            IEnumerable<string> machineDtIIds)
+            PortColumnNames columnNames,
+            IEnumerable<string> machineDetailIds)
         {
             var safeDatabaseName = QuoteIdentifier(databaseName);
+            var machineDetailColumn = QuoteIdentifier(columnNames.MachineDetailColumn);
+            var portIdColumn = QuoteIdentifier(columnNames.PortIdColumn);
+
             var sql = $@"
 SELECT
-    CAST([MachineDtIID] AS NVARCHAR(200)) AS MachineDtIID,
-    CAST([ID] AS NVARCHAR(100)) AS PortId
+    CAST({machineDetailColumn} AS NVARCHAR(200)) AS MachineDetailId,
+    CAST({portIdColumn} AS NVARCHAR(100)) AS PortId
 FROM {safeDatabaseName}.dbo.{QuoteIdentifier(PortTableName)}
-WHERE CAST([MachineDtIID] AS NVARCHAR(200)) IN @MachineDtIIds
-ORDER BY CAST([MachineDtIID] AS NVARCHAR(200)), [ID];";
+WHERE CAST({machineDetailColumn} AS NVARCHAR(200)) IN @MachineDetailIds
+ORDER BY CAST({machineDetailColumn} AS NVARCHAR(200)), {portIdColumn};";
 
             using var conn = new SqlConnection(_portMasterConnectionString);
             var rows = await conn.QueryAsync<PortSourceRow>(sql, new
             {
-                MachineDtIIds = machineDtIIds.ToArray()
+                MachineDetailIds = machineDetailIds.ToArray()
             });
 
             return rows
-                .GroupBy(row => row.MachineDtIID, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(row => row.MachineDetailId, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(
                     group => group.Key,
                     group => group.ToList(),
                     StringComparer.OrdinalIgnoreCase);
+        }
+
+        private static IReadOnlyList<PortSettingRowViewModel> BuildFallbackRows(IEnumerable<UpcomingDeadlineRow> deadlineRows)
+        {
+            return deadlineRows
+                .Select(row => new PortSettingRowViewModel
+                {
+                    Line = row.Line,
+                    OneADeadline = row.OneADeadline,
+                    MESMachineNo_String = row.MESMachineNo_String,
+                    MESSubEQNo_String = row.MESSubEQNo_String
+                })
+                .ToList();
+        }
+
+        private static string? FindFirstMatchingColumn(IEnumerable<string> actualColumns, IEnumerable<string> candidates)
+        {
+            var actualColumnList = actualColumns.ToList();
+
+            foreach (var candidate in candidates)
+            {
+                var match = actualColumnList.FirstOrDefault(column =>
+                    string.Equals(column, candidate, StringComparison.OrdinalIgnoreCase));
+
+                if (!string.IsNullOrWhiteSpace(match))
+                {
+                    return match;
+                }
+            }
+
+            return null;
         }
 
         private static string QuoteIdentifier(string value)
@@ -318,7 +408,13 @@ ORDER BY CAST([MachineDtIID] AS NVARCHAR(200)), [ID];";
             };
         }
 
-        private class UpcomingDeadlineRow
+        private sealed class PortColumnNames
+        {
+            public string MachineDetailColumn { get; set; } = "";
+            public string PortIdColumn { get; set; } = "";
+        }
+
+        private sealed class UpcomingDeadlineRow
         {
             public string Line { get; set; } = "";
             public DateTime? OneADeadline { get; set; }
@@ -326,9 +422,9 @@ ORDER BY CAST([MachineDtIID] AS NVARCHAR(200)), [ID];";
             public string? MESSubEQNo_String { get; set; }
         }
 
-        private class PortSourceRow
+        private sealed class PortSourceRow
         {
-            public string MachineDtIID { get; set; } = "";
+            public string MachineDetailId { get; set; } = "";
             public string PortId { get; set; } = "";
         }
     }
