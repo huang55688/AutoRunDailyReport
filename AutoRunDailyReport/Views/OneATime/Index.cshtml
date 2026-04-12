@@ -44,46 +44,42 @@
 <link rel="stylesheet" href="~/css/index.css" asp-append-version="true" />
 
 <div class="container-fluid eap-page py-4">
-    <div class="reminder-box mb-4">
-        <div class="FirstuserTitle">
-            <span class="userTitleSpan caca">Deadline is coming</span>
+    <div class="notice-board notice-board-top mb-4">
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+            <div class="FirstuserTitle mb-0">
+                <span class="userTitleSpan caca">EAP 建置(版本)注意事項</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" id="showNoticeFormBtn">新增</button>
         </div>
 
-        <div class="reminderlist">
-            @if (Model.Reminders.Any())
-            {
-                foreach (var item in Model.Reminders)
-                {
-                    <div class="reminder-item reminder-row">
-                        <div class="reminder-text">
-                            <strong>@item.Line</strong>
-                            @if (!string.IsNullOrWhiteSpace(item.MachineName))
-                            {
-                                <span>- @item.MachineName</span>
-                            }
-                            <br />
-                            1A 期限：@item.OneADeadline?.ToString("yyyy/MM/dd")
-                            <span class="reminder-days">@GetReminderText(item.DaysRemaining)</span>
-                        </div>
+        <form asp-action="AddNotice" method="post" class="notice-add-form mt-3 d-none" id="noticeAddForm">
+            @Html.AntiForgeryToken()
+            <label class="form-label notice-form-label" for="noticeText">Notice 內容</label>
+            <textarea id="noticeText"
+                      name="noticeText"
+                      class="form-control notice-textarea"
+                      rows="3"
+                      placeholder="輸入新的注意事項"></textarea>
+            <div class="d-flex justify-content-end gap-2 mt-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="cancelNoticeFormBtn">取消</button>
+                <button type="submit" class="btn btn-primary btn-sm">新增</button>
+            </div>
+        </form>
 
-                        @if (item.OneADeadline.HasValue)
-                        {
-                            <form asp-action="HideReminder" method="post" class="reminder-action-form">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="line" value="@item.Line" />
-                                <input type="hidden" name="oneADeadline" value="@item.OneADeadline.Value.ToString("yyyy-MM-dd")" />
-                                <label class="reminder-check-label">
-                                    <input type="checkbox" class="reminder-check-input" onchange="this.form.submit()" />
-                                    <span>已排程</span>
-                                </label>
-                            </form>
-                        }
+        <div class="board-list board-list-wide mt-3">
+            @if (Model.Notices.Any())
+            {
+                @foreach (var notice in Model.Notices)
+                {
+                    <div class="board-item">
+                        <div class="board-tag">@notice.Tag</div>
+                        <div class="board-text">@notice.Text</div>
                     </div>
                 }
             }
             else
             {
-                <div class="reminder-item">目前沒有 14 天內到期的項目。</div>
+                <div class="board-empty">目前沒有 Notice。</div>
             }
         </div>
     </div>
@@ -107,7 +103,7 @@
     }
 
     <div class="row g-4">
-        <div class="col-lg-9">
+        <div class="col-lg-9 order-lg-1">
             <form asp-action="Save" method="post" id="scheduleSaveForm">
                 @Html.AntiForgeryToken()
                 <div id="scheduleHiddenInputs"></div>
@@ -204,41 +200,47 @@
             </form>
         </div>
 
-        <div class="col-lg-3">
-            <div class="notice-board">
-                <div class="d-flex justify-content-between align-items-center gap-2">
-                    <div class="section-title mb-0">EAP 建置(版本)注意事項</div>
-                    <button type="button" class="btn btn-sm btn-primary" id="showNoticeFormBtn">新增</button>
+        <div class="col-lg-3 order-lg-2">
+            <div class="reminder-box reminder-box-side">
+                <div class="FirstuserTitle">
+                    <span class="userTitleSpan caca">Deadline is coming</span>
                 </div>
 
-                <form asp-action="AddNotice" method="post" class="notice-add-form mt-3 d-none" id="noticeAddForm">
-                    @Html.AntiForgeryToken()
-                    <label class="form-label notice-form-label" for="noticeText">Notice 內容</label>
-                    <textarea id="noticeText"
-                              name="noticeText"
-                              class="form-control notice-textarea"
-                              rows="3"
-                              placeholder="輸入新的注意事項"></textarea>
-                    <div class="d-flex justify-content-end gap-2 mt-2">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="cancelNoticeFormBtn">取消</button>
-                        <button type="submit" class="btn btn-primary btn-sm">新增</button>
-                    </div>
-                </form>
-
-                <div class="board-list mt-3">
-                    @if (Model.Notices.Any())
+                <div class="reminderlist">
+                    @if (Model.Reminders.Any())
                     {
-                        @foreach (var notice in Model.Notices)
+                        foreach (var item in Model.Reminders)
                         {
-                            <div class="board-item">
-                                <div class="board-tag">@notice.Tag</div>
-                                <div class="board-text">@notice.Text</div>
+                            <div class="reminder-item reminder-row">
+                                <div class="reminder-text">
+                                    <strong>@item.Line</strong>
+                                    @if (!string.IsNullOrWhiteSpace(item.MachineName))
+                                    {
+                                        <span>- @item.MachineName</span>
+                                    }
+                                    <br />
+                                    1A 期限：@item.OneADeadline?.ToString("yyyy/MM/dd")
+                                    <span class="reminder-days">@GetReminderText(item.DaysRemaining)</span>
+                                </div>
+
+                                @if (item.OneADeadline.HasValue)
+                                {
+                                    <form asp-action="HideReminder" method="post" class="reminder-action-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="line" value="@item.Line" />
+                                        <input type="hidden" name="oneADeadline" value="@item.OneADeadline.Value.ToString("yyyy-MM-dd")" />
+                                        <label class="reminder-check-label">
+                                            <input type="checkbox" class="reminder-check-input" onchange="this.form.submit()" />
+                                            <span>已排程</span>
+                                        </label>
+                                    </form>
+                                }
                             </div>
                         }
                     }
                     else
                     {
-                        <div class="board-empty">目前沒有 Notice。</div>
+                        <div class="reminder-item">目前沒有 14 天內到期的項目。</div>
                     }
                 </div>
             </div>
