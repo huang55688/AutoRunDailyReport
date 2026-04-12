@@ -1,0 +1,246 @@
+﻿body {
+    background: linear-gradient(180deg, #f7f3df 0%, #f4f4f4 28%, #f4f4f4 100%);
+}
+
+.sync-page {
+    color: #2f2618;
+}
+
+.sync-page-header,
+.sync-panel {
+    background: linear-gradient(180deg, #fffaf0 0%, #ffffff 100%);
+    border: 2px solid #dcc9a3;
+    box-shadow: 0 12px 28px rgba(91, 69, 34, 0.06);
+}
+
+.sync-page-header {
+    padding: 20px 24px;
+}
+
+.sync-title-wrap {
+    margin-bottom: 0;
+}
+
+.sync-title {
+    display: inline-block;
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    border-bottom: 4px solid #76c784;
+    padding-bottom: 4px;
+}
+
+.sync-state-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 120px;
+    padding: 9px 16px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 800;
+    border: 1px solid transparent;
+}
+
+.sync-state-running {
+    background: #fff4db;
+    color: #a15e00;
+    border-color: #efcb84;
+}
+
+.sync-state-success {
+    background: #e9f8ef;
+    color: #1f6d3b;
+    border-color: #95d6af;
+}
+
+.sync-state-failed {
+    background: #fff1f1;
+    color: #b23535;
+    border-color: #efb1b1;
+}
+
+.sync-state-idle {
+    background: #eef2f7;
+    color: #64748b;
+    border-color: #cbd5e1;
+}
+
+.sync-panel {
+    overflow: hidden;
+}
+
+.sync-panel-header {
+    padding: 18px 22px 14px;
+    background: linear-gradient(180deg, #fffdf9 0%, #fff8ea 100%);
+    border-bottom: 1px solid #e1d4bc;
+}
+
+.sync-panel-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: #2f2618;
+}
+
+.sync-panel-body {
+    padding: 20px 22px 22px;
+}
+
+.sync-info-table td {
+    padding: 12px 0;
+    border: none;
+    border-bottom: 1px solid #efe7d8;
+    vertical-align: middle;
+    color: #3b3126;
+}
+
+.sync-info-table tr:last-child td {
+    border-bottom: none;
+}
+
+.sync-info-label {
+    width: 132px;
+    color: #736553;
+    font-weight: 700;
+}
+
+.sync-action-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.sync-primary-button,
+.sync-secondary-button {
+    border-radius: 10px;
+    font-weight: 800;
+}
+
+.sync-primary-button {
+    width: 100%;
+    padding: 13px 18px;
+    border: 1px solid #8f652d;
+    background: linear-gradient(180deg, #d6944f 0%, #b86f2d 100%);
+    color: #fff;
+}
+
+.sync-primary-button:hover,
+.sync-primary-button:focus {
+    color: #fff;
+    background: linear-gradient(180deg, #dc9d5a 0%, #b86f2d 100%);
+}
+
+.sync-primary-button:disabled {
+    opacity: 0.72;
+}
+
+.sync-secondary-button {
+    border: 1px solid #b08a52;
+    background: linear-gradient(180deg, #ffffff 0%, #f8edd0 100%);
+    color: #73481f;
+}
+
+.sync-secondary-button:hover,
+.sync-secondary-button:focus {
+    color: #5b3511;
+    background: linear-gradient(180deg, #fff8e8 0%, #f4e0a9 100%);
+}
+
+.sync-form-label {
+    display: block;
+    font-size: 13px;
+    color: #6f6251;
+    margin-bottom: 8px;
+    font-weight: 700;
+}
+
+.sync-select {
+    border-radius: 10px 0 0 10px;
+    border-color: #d8d4ca;
+    background: #fffefb;
+}
+
+.sync-inline-message {
+    margin-top: 10px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.sync-inline-message-success {
+    color: #1f6d3b;
+}
+
+.sync-inline-message-error {
+    color: #b23535;
+}
+
+.sync-log-table {
+    --bs-table-bg: transparent;
+    margin: 0;
+}
+
+.sync-log-table thead th {
+    background: #f2e5b9;
+    color: #423317;
+    border-bottom: 1px solid #dbc78e;
+    font-size: 14px;
+    font-weight: 800;
+    padding: 14px 16px;
+    white-space: nowrap;
+}
+
+.sync-log-table tbody td {
+    padding: 14px 16px;
+    border-color: #ece4d2;
+    color: #3b3126;
+    background-color: #ffffff;
+}
+
+.sync-log-table tbody tr:nth-child(even) td {
+    background-color: #fffdf9;
+}
+
+.sync-log-table tbody tr:hover td {
+    background-color: #fff7e6;
+}
+
+.sync-log-result {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.sync-log-result-success {
+    background: #e9f8ef;
+    color: #1f6d3b;
+    border: 1px solid #95d6af;
+}
+
+.sync-log-result-failed {
+    background: #fff1f1;
+    color: #b23535;
+    border: 1px solid #efb1b1;
+}
+
+.sync-empty-state {
+    padding: 48px 20px !important;
+    text-align: center;
+    color: #7c7264 !important;
+    background: #fffdf9 !important;
+    font-size: 16px;
+}
+
+@media (max-width: 992px) {
+    .sync-page-header,
+    .sync-panel-body {
+        padding: 18px;
+    }
+
+    .sync-page-header {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+}
