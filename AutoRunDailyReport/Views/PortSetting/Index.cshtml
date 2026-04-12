@@ -1,0 +1,105 @@
+﻿@model AutoRunDailyReport.Models.PortSettingPageViewModel
+@{
+    ViewData["Title"] = "port設置";
+}
+
+<div class="py-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+        <div>
+            <h2 class="mb-1">port設置</h2>
+            <div class="text-muted">
+                顯示今天起 @Model.ReminderDays 天內到期的 Line，並比對 `MesMachinesSync` 與 `PDL_MachineDtl_Port`。
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary"
+               href="/api/portsetting/test-connection"
+               target="_blank"
+               rel="noopener noreferrer">測試 API</a>
+        </div>
+    </div>
+
+    <div class="alert alert-info">
+        如果頁面資料抓不到，可以先開啟 <code>/api/portsetting/test-connection</code>，查看是
+        <code>TargetConnection</code>、<code>PortSourceConnection</code>、<code>PortDatabaseLookup</code>
+        還是 <code>PortTableQuery</code> 哪一步失敗。
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted small">總筆數</div>
+                    <div class="fs-4 fw-semibold">@Model.TotalRows</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted small">已比對到 Port</div>
+                    <div class="fs-4 fw-semibold">@Model.MatchedRows</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted small">Port 資料庫</div>
+                    <div class="fs-6 fw-semibold">@(string.IsNullOrWhiteSpace(Model.PortDatabaseName) ? "尚未找到" : Model.PortDatabaseName)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.Warnings.Any())
+    {
+        foreach (var warning in Model.Warnings)
+        {
+            <div class="alert alert-warning">@warning</div>
+        }
+    }
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Line</th>
+                            <th>1A Deadline</th>
+                            <th>MESMachineNo_String</th>
+                            <th>MESSubEQNo_String</th>
+                            <th>MachineDtIID</th>
+                            <th>ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Items.Any())
+                        {
+                            foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td>@item.Line</td>
+                                    <td>@item.OneADeadline?.ToString("yyyy/MM/dd")</td>
+                                    <td>@(string.IsNullOrWhiteSpace(item.MESMachineNo_String) ? "-" : item.MESMachineNo_String)</td>
+                                    <td>@(string.IsNullOrWhiteSpace(item.MESSubEQNo_String) ? "-" : item.MESSubEQNo_String)</td>
+                                    <td>@(string.IsNullOrWhiteSpace(item.MachineDtIID) ? "-" : item.MachineDtIID)</td>
+                                    <td>@(string.IsNullOrWhiteSpace(item.PortId) ? "-" : item.PortId)</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    目前沒有今天起 14 天內到期的 Line 資料。
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

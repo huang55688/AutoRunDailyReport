@@ -10,6 +10,9 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton<MesRepository>();
 builder.Services.AddSingleton<TargetRepository>();
 builder.Services.AddSingleton<MetaRepository>();
+builder.Services.AddSingleton<OneATimeRepository>();
+builder.Services.AddSingleton<PortSettingRepository>();
+builder.Services.AddSingleton<NoticeRepository>();
 
 // Sync services
 builder.Services.AddSingleton<SyncStatusTracker>();
