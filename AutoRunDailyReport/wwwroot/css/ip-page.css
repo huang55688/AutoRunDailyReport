@@ -32,6 +32,31 @@ body {
     font-size: 14px;
 }
 
+.ip-import-form {
+    margin-top: 18px;
+}
+
+.ip-import-row {
+    display: flex;
+    align-items: end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.ip-form-label {
+    min-width: 60px;
+    margin-bottom: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #5b4630;
+}
+
+.ip-line-input {
+    max-width: 320px;
+    border-radius: 10px;
+    border-color: #d5c2a0;
+}
+
 .ip-import-button,
 .ip-save-button {
     border-radius: 10px;
@@ -92,6 +117,13 @@ body {
     color: #74490d;
 }
 
+.ip-alert-highlight {
+    background: #eef8ff;
+    border: 1px solid #9ecbea;
+    border-left: 6px solid #2b78b8;
+    color: #17486f;
+}
+
 .ip-table {
     --bs-table-bg: transparent;
     margin: 0;
@@ -121,6 +153,14 @@ body {
 
 .ip-table tbody tr:hover td {
     background-color: #fff7e6;
+}
+
+.ip-table tbody tr.ip-row-highlight td {
+    background: linear-gradient(180deg, #eef8ff 0%, #f7fbff 100%);
+}
+
+.ip-table tbody tr.ip-row-highlight:nth-child(even) td {
+    background: linear-gradient(180deg, #e8f5ff 0%, #f3faff 100%);
 }
 
 .ip-table code {
@@ -174,6 +214,19 @@ body {
     .ip-inline-form {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .ip-import-row {
+        align-items: stretch;
+    }
+
+    .ip-form-label {
+        min-width: 0;
+    }
+
+    .ip-line-input {
+        max-width: none;
+        width: 100%;
     }
 
     .ip-input {

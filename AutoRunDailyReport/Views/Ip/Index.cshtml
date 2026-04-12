@@ -6,15 +6,26 @@
 <link rel="stylesheet" href="~/css/ip-page.css" asp-append-version="true" />
 
 <div class="container-fluid ip-page py-4">
-    <div class="ip-page-header mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
-        <div class="ip-title-wrap">
-            <span class="ip-title">IP設置</span>
-            <div class="ip-subtitle">按一下按鈕後，只會讀取近 14 天的設備資料並寫入 dbo.ip，不會修改來源的 SERM_EQUIPMENT。</div>
+    <div class="ip-page-header mb-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div class="ip-title-wrap">
+                <span class="ip-title">IP設置</span>
+                <div class="ip-subtitle">輸入 LineID 後，系統會從 [DIAEAP_UNIMICRON].[dbo].[SBRM_EQUIPMENT] 只讀取對應設備資料，並寫入 [SM_AIOT_KF].[dbo].[ip]。</div>
+            </div>
         </div>
 
-        <form asp-action="ImportRecent" method="post" class="m-0">
+        <form asp-action="ImportByLineId" method="post" class="ip-import-form mt-3">
             @Html.AntiForgeryToken()
-            <button type="submit" class="btn ip-import-button">匯入近 14 天資料</button>
+            <div class="ip-import-row">
+                <label for="lineId" class="ip-form-label">LineID</label>
+                <input id="lineId"
+                       name="lineId"
+                       type="text"
+                       value="@Model.CurrentLineId"
+                       class="form-control ip-line-input"
+                       placeholder="請輸入 LineID" />
+                <button type="submit" class="btn ip-import-button">送出</button>
+            </div>
         </form>
     </div>
 
@@ -36,6 +47,11 @@
         }
     }
 
+    @if (Model.HighlightedKeys.Any())
+    {
+        <div class="ip-alert ip-alert-highlight mb-3">表格中已高亮顯示這次剛匯入的設備。</div>
+    }
+
     <div class="ip-table-shell">
         <div class="table-responsive">
             <table class="table ip-table mb-0 align-middle">
@@ -45,7 +61,7 @@
                         <th>EQUIPMENTID</th>
                         <th>EQUIPMENTNO</th>
                         <th>IP</th>
-                        <th class="text-end">操作</th>
+                        <th class="text-end">狀態</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -53,7 +69,11 @@
                     {
                         foreach (var item in Model.Items)
                         {
-                            <tr>
+                            var rowCssClass = Model.HighlightedKeys.Contains(item.GetRowKey())
+                                ? "ip-row-highlight"
+                                : string.Empty;
+
+                            <tr class="@rowCssClass">
                                 <td><code>@item.LineId</code></td>
                                 <td><code>@item.EquipmentId</code></td>
                                 <td><code>@item.EquipmentNo</code></td>
@@ -83,7 +103,7 @@
                     {
                         <tr>
                             <td colspan="5" class="ip-empty-state">
-                                目前 dbo.ip 沒有資料。你可以先按「匯入近 14 天資料」。
+                                目前 dbo.ip 還沒有資料。你可以先輸入 LineID 後按送出。
                             </td>
                         </tr>
                     }
