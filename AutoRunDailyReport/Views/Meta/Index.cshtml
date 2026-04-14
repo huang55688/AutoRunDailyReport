@@ -1,7 +1,7 @@
 ﻿@model IEnumerable<AutoRunDailyReport.Models.MesMachinesMetaDto>
 @using System.Globalization
 @{
-    ViewData["Title"] = "Line 資料管理";
+    ViewData["Title"] = "機台資料管理";
     var culture = CultureInfo.GetCultureInfo("zh-TW");
     var items = Model?.ToList() ?? new List<AutoRunDailyReport.Models.MesMachinesMetaDto>();
 }
@@ -30,7 +30,7 @@
 <div class="container-fluid meta-page py-4">
     <div class="meta-page-header mb-4">
         <div class="meta-title-wrap">
-            <span class="meta-title">Line 資料管理</span>
+            <span class="meta-title">機台資料管理</span>
         </div>
     </div>
 
@@ -50,6 +50,7 @@
                 <table class="table meta-table mb-0 align-middle">
                     <thead>
                         <tr>
+                            <th>MESMachineName</th>
                             <th>Line</th>
                             <th>1A Deadline</th>
                             <th>State</th>
@@ -67,7 +68,8 @@
                             foreach (var item in items)
                             {
                                 <tr>
-                                    <td class="meta-line-cell">@item.Line</td>
+                                    <td class="meta-line-cell">@item.MESMachineName</td>
+                                    <td>@DisplayOrDash(item.Line)</td>
                                     <td class="text-nowrap">
                                         @if (item.FirstADeadline.HasValue)
                                         {
@@ -87,7 +89,7 @@
                                     <td>@DisplayOrDash(item.Schedule)</td>
                                     <td class="meta-date-cell">@(item.UpdatedAt?.ToString("yyyy/MM/dd HH:mm") ?? "-")</td>
                                     <td class="meta-action-cell">
-                                        <a asp-action="Edit" asp-route-id="@item.Line" class="btn meta-edit-button">編輯</a>
+                                        <a asp-action="Edit" asp-route-id="@item.MESMachineName" class="btn meta-edit-button">編輯</a>
                                     </td>
                                 </tr>
                             }
@@ -95,7 +97,7 @@
                         else
                         {
                             <tr>
-                                <td colspan="9" class="meta-empty-state">目前沒有任何 Line 資料。</td>
+                                <td colspan="10" class="meta-empty-state">目前沒有任何機台資料。</td>
                             </tr>
                         }
                     </tbody>

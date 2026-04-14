@@ -19,7 +19,8 @@ namespace AutoRunDailyReport.Repositories
             const string sql = @"
 IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'dbo.MesMachinesMeta'))
 CREATE TABLE dbo.MesMachinesMeta (
-    Line              NVARCHAR(200) NOT NULL PRIMARY KEY,
+    MESMachineName    NVARCHAR(500) NOT NULL PRIMARY KEY,
+    Line              NVARCHAR(200) NULL,
     State             NVARCHAR(100) NULL,
     AiotOwner         NVARCHAR(200) NULL,
     Owner             NVARCHAR(200) NULL,
@@ -35,19 +36,20 @@ CREATE TABLE dbo.MesMachinesMeta (
 
         public async Task<IEnumerable<MesMachinesMetaDto>> GetAllAsync()
         {
-            const string sql = "SELECT * FROM dbo.MesMachinesMeta ORDER BY Line;";
+            const string sql = "SELECT * FROM dbo.MesMachinesMeta ORDER BY MESMachineName;";
             using var conn = new SqlConnection(_connectionString);
             return await conn.QueryAsync<MesMachinesMetaDto>(sql);
         }
 
         /// <summary>
-        /// 從 MesMachinesSync 取所有 Line，LEFT JOIN MesMachinesMeta。
-        /// 即使尚未手動編輯過的 Line 也會出現。
+        /// 從 MesMachinesSync 取所有 MESMachineName，LEFT JOIN MesMachinesMeta。
+        /// 即使尚未手動編輯過的機台也會出現。
         /// </summary>
         public async Task<IEnumerable<MesMachinesMetaDto>> GetAllLinesWithMetaAsync()
         {
             const string sql = @"
 SELECT
+    s.MESMachineName,
     s.Line,
     m.State,
     m.AiotOwner,
@@ -57,18 +59,22 @@ SELECT
     m.FirstADeadline,
     m.Illustrate,
     m.UpdatedAt
-FROM (SELECT DISTINCT Line FROM dbo.MesMachinesSync WHERE Line IS NOT NULL) s
-LEFT JOIN dbo.MesMachinesMeta m ON s.Line = m.Line
-ORDER BY s.Line;";
+FROM (
+    SELECT DISTINCT MESMachineName, Line
+    FROM dbo.MesMachinesSync
+    WHERE MESMachineName IS NOT NULL
+) s
+LEFT JOIN dbo.MesMachinesMeta m ON s.MESMachineName = m.MESMachineName
+ORDER BY s.MESMachineName;";
             using var conn = new SqlConnection(_connectionString);
             return await conn.QueryAsync<MesMachinesMetaDto>(sql);
         }
 
-        public async Task<MesMachinesMetaDto?> GetByLineAsync(string line)
+        public async Task<MesMachinesMetaDto?> GetByMachineNameAsync(string machineName)
         {
-            const string sql = "SELECT * FROM dbo.MesMachinesMeta WHERE Line = @Line;";
+            const string sql = "SELECT * FROM dbo.MesMachinesMeta WHERE MESMachineName = @MESMachineName;";
             using var conn = new SqlConnection(_connectionString);
-            return await conn.QueryFirstOrDefaultAsync<MesMachinesMetaDto>(sql, new { Line = line });
+            return await conn.QueryFirstOrDefaultAsync<MesMachinesMetaDto>(sql, new { MESMachineName = machineName });
         }
 
         public async Task<IEnumerable<ReminderItemDto>> GetUpcomingRemindersAsync(int days)
@@ -77,26 +83,26 @@ ORDER BY s.Line;";
 
             const string sql = @"
 SELECT
-    meta.Line,
-    MAX(sync.MESMachineName) AS MachineName,
+    meta.MESMachineName AS MachineName,
+    sync.Line,
     meta.FirstADeadline AS OneADeadline
 FROM dbo.MesMachinesMeta meta
-LEFT JOIN dbo.MesMachinesSync sync ON sync.Line = meta.Line
+LEFT JOIN dbo.MesMachinesSync sync ON sync.MESMachineName = meta.MESMachineName
 LEFT JOIN dbo.OneATimeReminderHidden hidden
-    ON hidden.Line = meta.Line
+    ON hidden.MESMachineName = meta.MESMachineName
    AND hidden.DeadlineDate = CAST(meta.FirstADeadline AS date)
 WHERE meta.FirstADeadline IS NOT NULL
   AND CAST(meta.FirstADeadline AS date) >= CAST(GETDATE() AS date)
   AND CAST(meta.FirstADeadline AS date) <= DATEADD(DAY, @Days, CAST(GETDATE() AS date))
-  AND hidden.Line IS NULL
-GROUP BY meta.Line, meta.FirstADeadline
-ORDER BY meta.FirstADeadline, meta.Line;";
+  AND hidden.MESMachineName IS NULL
+GROUP BY meta.MESMachineName, sync.Line, meta.FirstADeadline
+ORDER BY meta.FirstADeadline, meta.MESMachineName;";
 
             using var conn = new SqlConnection(_connectionString);
             return await conn.QueryAsync<ReminderItemDto>(sql, new { Days = days });
         }
 
-        public async Task HideReminderAsync(string line, DateTime deadlineDate)
+        public async Task HideReminderAsync(string machineName, DateTime deadlineDate)
         {
             await EnsureReminderHiddenTableExistsAsync();
 
@@ -104,27 +110,27 @@ ORDER BY meta.FirstADeadline, meta.Line;";
 MERGE dbo.OneATimeReminderHidden AS target
 USING (
     SELECT
-        @Line AS Line,
+        @MESMachineName AS MESMachineName,
         @DeadlineDate AS DeadlineDate
 ) AS source
-ON target.Line = source.Line
+ON target.MESMachineName = source.MESMachineName
 AND target.DeadlineDate = source.DeadlineDate
 WHEN MATCHED THEN
     UPDATE SET HiddenAt = GETDATE()
 WHEN NOT MATCHED THEN
-    INSERT (Line, DeadlineDate, HiddenAt)
-    VALUES (@Line, @DeadlineDate, GETDATE());";
+    INSERT (MESMachineName, DeadlineDate, HiddenAt)
+    VALUES (@MESMachineName, @DeadlineDate, GETDATE());";
 
             using var conn = new SqlConnection(_connectionString);
             await conn.ExecuteAsync(sql, new
             {
-                Line = line,
+                MESMachineName = machineName,
                 DeadlineDate = deadlineDate.Date
             });
         }
 
         /// <summary>
-        /// 更新單一 Line 的手動欄位（不覆蓋 FirstADeadline）。
+        /// 更新單一機台的手動欄位（不覆蓋 FirstADeadline）。
         /// </summary>
         public async Task UpsertManualFieldsAsync(MesMachinesMetaDto meta)
         {
@@ -132,10 +138,11 @@ WHEN NOT MATCHED THEN
 
             const string sql = @"
 MERGE dbo.MesMachinesMeta AS target
-USING (SELECT @Line AS Line) AS source
-    ON target.Line = source.Line
+USING (SELECT @MESMachineName AS MESMachineName) AS source
+    ON target.MESMachineName = source.MESMachineName
 WHEN MATCHED THEN
     UPDATE SET
+        Line       = @Line,
         State      = @State,
         AiotOwner  = @AiotOwner,
         Owner      = @Owner,
@@ -144,8 +151,8 @@ WHEN MATCHED THEN
         Illustrate = @Illustrate,
         UpdatedAt  = GETDATE()
 WHEN NOT MATCHED THEN
-    INSERT (Line, State, AiotOwner, Owner, Schedule, TestStatus, Illustrate, UpdatedAt)
-    VALUES (@Line, @State, @AiotOwner, @Owner, @Schedule, @TestStatus, @Illustrate, GETDATE());";
+    INSERT (MESMachineName, Line, State, AiotOwner, Owner, Schedule, TestStatus, Illustrate, UpdatedAt)
+    VALUES (@MESMachineName, @Line, @State, @AiotOwner, @Owner, @Schedule, @TestStatus, @Illustrate, GETDATE());";
 
             using var conn = new SqlConnection(_connectionString);
             await conn.ExecuteAsync(sql, meta);
@@ -153,10 +160,9 @@ WHEN NOT MATCHED THEN
 
         /// <summary>
         /// 同步完成後呼叫。
-        /// 從 MesMachinesSync 計算每個 Line 的 FirstADeadline：
+        /// 從 MesMachinesSync 計算每個 MESMachineName 的 FirstADeadline：
         ///   排除 Vendor = '易格'，取 MAX(EQIQDateEE_Time, EQIQDateEE_Time_Check) + 14 天。
-        ///   （不含 InLineTestDate_Time，避免重複累加天數）
-        /// 只更新 FirstADeadline，不覆蓋手動欄位。
+        /// 只更新 FirstADeadline 和 Line，不覆蓋手動欄位。
         /// </summary>
         public async Task RecalculateDeadlinesAsync()
         {
@@ -166,7 +172,8 @@ WHEN NOT MATCHED THEN
 MERGE dbo.MesMachinesMeta AS target
 USING (
     SELECT
-        Line,
+        MESMachineName,
+        MAX(Line) AS Line,
         DATEADD(DAY, 14,
             MAX(
                 NULLIF(
@@ -183,15 +190,16 @@ USING (
     WHERE (Vendor != N'易格' OR Vendor IS NOT NULL)
       AND (EQIQDateEE_Time IS NOT NULL
            OR EQIQDateEE_Time_Check IS NOT NULL)
-    GROUP BY Line
-) AS source ON target.Line = source.Line
+    GROUP BY MESMachineName
+) AS source ON target.MESMachineName = source.MESMachineName
 WHEN MATCHED THEN
     UPDATE SET
+        Line           = source.Line,
         FirstADeadline = source.FirstADeadline,
         UpdatedAt      = GETDATE()
 WHEN NOT MATCHED BY TARGET THEN
-    INSERT (Line, FirstADeadline, UpdatedAt)
-    VALUES (source.Line, source.FirstADeadline, GETDATE());";
+    INSERT (MESMachineName, Line, FirstADeadline, UpdatedAt)
+    VALUES (source.MESMachineName, source.Line, source.FirstADeadline, GETDATE());";
 
             using var conn = new SqlConnection(_connectionString);
             await conn.ExecuteAsync(sql);
@@ -203,10 +211,10 @@ WHEN NOT MATCHED BY TARGET THEN
 IF OBJECT_ID(N'[dbo].[OneATimeReminderHidden]', N'U') IS NULL
 BEGIN
     CREATE TABLE [dbo].[OneATimeReminderHidden] (
-        [Line]         NVARCHAR(200) NOT NULL,
-        [DeadlineDate] DATE          NOT NULL,
-        [HiddenAt]     DATETIME      NOT NULL DEFAULT GETDATE(),
-        CONSTRAINT [PK_OneATimeReminderHidden] PRIMARY KEY ([Line], [DeadlineDate])
+        [MESMachineName] NVARCHAR(500) NOT NULL,
+        [DeadlineDate]   DATE          NOT NULL,
+        [HiddenAt]       DATETIME      NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT [PK_OneATimeReminderHidden] PRIMARY KEY ([MESMachineName], [DeadlineDate])
     );
 END;";
 

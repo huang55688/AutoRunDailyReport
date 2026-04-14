@@ -2,8 +2,8 @@ namespace AutoRunDailyReport.Models
 {
     public class ReminderItemDto
     {
-        public string Line { get; set; } = "";
-        public string? MachineName { get; set; }
+        public string MachineName { get; set; } = "";
+        public string? Line { get; set; }
         public DateTime? OneADeadline { get; set; }
 
         public int DaysRemaining

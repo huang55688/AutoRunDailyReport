@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using AutoRunDailyReport.Models;
+﻿using AutoRunDailyReport.Models;
 using AutoRunDailyReport.Repositories;
+using Microsoft.AspNetCore.Mvc;
 
 namespace AutoRunDailyReport.Controllers
 {
@@ -23,7 +23,7 @@ namespace AutoRunDailyReport.Controllers
             catch
             {
                 list = Enumerable.Empty<MesMachinesMetaDto>();
-                ViewBag.Warning = "Line 資料載入失敗，可能是同步資料表尚未建立或目前資料庫無法連線。";
+                ViewBag.Warning = "資料載入失敗，可能是同步資料表尚未建立或目前資料庫無法連線。";
             }
 
             return View(list);
@@ -37,8 +37,8 @@ namespace AutoRunDailyReport.Controllers
                 return BadRequest();
             }
 
-            var meta = await _metaRepo.GetByLineAsync(id)
-                       ?? new MesMachinesMetaDto { Line = id };
+            var meta = await _metaRepo.GetByMachineNameAsync(id)
+                       ?? new MesMachinesMetaDto { MESMachineName = id };
             return View(meta);
         }
 
@@ -46,13 +46,13 @@ namespace AutoRunDailyReport.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(MesMachinesMetaDto model)
         {
-            if (string.IsNullOrWhiteSpace(model.Line))
+            if (string.IsNullOrWhiteSpace(model.MESMachineName))
             {
                 return BadRequest();
             }
 
             await _metaRepo.UpsertManualFieldsAsync(model);
-            TempData["Success"] = $"Line {model.Line} 已成功儲存。";
+            TempData["Success"] = $"機台 {model.MESMachineName} 已成功儲存。";
             return RedirectToAction(nameof(Index));
         }
     }

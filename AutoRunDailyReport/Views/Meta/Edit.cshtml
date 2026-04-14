@@ -1,7 +1,7 @@
 ﻿@model AutoRunDailyReport.Models.MesMachinesMetaDto
 @using System.Globalization
 @{
-    ViewData["Title"] = $"編輯 Line：{Model.Line}";
+    ViewData["Title"] = $"編輯機台：{Model.MESMachineName}";
     var culture = CultureInfo.GetCultureInfo("zh-TW");
     var today = DateTime.Today;
     int? daysLeft = Model.FirstADeadline.HasValue
@@ -31,7 +31,7 @@
     <div class="meta-edit-shell">
         <div class="d-flex align-items-center mb-4 gap-3 flex-wrap">
             <a asp-action="Index" class="meta-back-link">返回列表</a>
-            <h3 class="mb-0 meta-edit-title">@Model.Line</h3>
+            <h3 class="mb-0 meta-edit-title">@Model.MESMachineName</h3>
         </div>
 
         <div class="meta-deadline-panel mb-4">
@@ -50,6 +50,7 @@
         </div>
 
         <form asp-action="Edit" method="post" class="meta-form-shell">
+            <input type="hidden" asp-for="MESMachineName" />
             <input type="hidden" asp-for="Line" />
 
             <div class="row g-3">
