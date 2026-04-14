@@ -154,16 +154,17 @@ namespace AutoRunDailyReport.Repositories
         {
             const string sql = @"
 SELECT DISTINCT
+    meta.MESMachineName,
     meta.Line,
     meta.FirstADeadline AS OneADeadline,
     sync.MESMachineNo_String,
     sync.MESSubEQNo_String
 FROM dbo.MesMachinesMeta meta
-INNER JOIN dbo.MesMachinesSync sync ON sync.Line = meta.Line
+INNER JOIN dbo.MesMachinesSync sync ON sync.MESMachineName = meta.MESMachineName
 WHERE meta.FirstADeadline IS NOT NULL
   AND CAST(meta.FirstADeadline AS date) >= CAST(GETDATE() AS date)
   AND CAST(meta.FirstADeadline AS date) <= DATEADD(DAY, @Days, CAST(GETDATE() AS date))
-ORDER BY meta.FirstADeadline, meta.Line, sync.MESMachineNo_String, sync.MESSubEQNo_String;";
+ORDER BY meta.FirstADeadline, meta.MESMachineName, sync.MESMachineNo_String, sync.MESSubEQNo_String;";
 
             using var conn = new SqlConnection(_targetConnectionString);
             return await conn.QueryAsync<UpcomingDeadlineRow>(sql, new { Days = days });
@@ -416,7 +417,8 @@ ORDER BY CAST({machineDetailColumn} AS NVARCHAR(200)), {portIdColumn};";
 
         private sealed class UpcomingDeadlineRow
         {
-            public string Line { get; set; } = "";
+            public string MESMachineName { get; set; } = "";
+            public string? Line { get; set; }
             public DateTime? OneADeadline { get; set; }
             public string? MESMachineNo_String { get; set; }
             public string? MESSubEQNo_String { get; set; }
