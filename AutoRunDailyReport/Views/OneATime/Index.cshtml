@@ -1,0 +1,288 @@
+﻿@model AutoRunDailyReport.Models.OneATimePageViewModel
+@using System.Globalization
+@using System.Text.Json
+@{
+    ViewData["Title"] = "測機時程";
+    var culture = CultureInfo.GetCultureInfo("zh-TW");
+    var scheduleJson = JsonSerializer.Serialize(
+        Model.Days.Select(day => new
+        {
+            date = day.Date.ToString("yyyy-MM-dd"),
+            dateLabel = day.Date.ToString("M月d日", culture),
+            entries = day.Entries.Select(entry => new
+            {
+                displayOrder = entry.DisplayOrder,
+                testItem = entry.TestItem,
+                progress = entry.Progress
+            })
+        }));
+}
+@functions {
+    public string GetProgressColorClass(int progress)
+    {
+        if (progress >= 100)
+            return "schedule-progress-green";
+
+        if (progress <= 25)
+            return "schedule-progress-red";
+
+        return "schedule-progress-blue";
+    }
+
+    public string GetReminderText(int daysRemaining)
+    {
+        if (daysRemaining < 0)
+            return $"已逾期 {-daysRemaining} 天";
+
+        if (daysRemaining == 0)
+            return "今天到期";
+
+        return $"剩 {daysRemaining} 天";
+    }
+}
+
+<link rel="stylesheet" href="~/css/index.css" asp-append-version="true" />
+
+<div class="container-fluid eap-page py-4">
+    <div class="notice-board notice-board-top mb-4">
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+            <div class="FirstuserTitle mb-0">
+                <span class="userTitleSpan caca">EAP 建置(版本)注意事項</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" id="showNoticeFormBtn">新增</button>
+        </div>
+
+        <form asp-action="AddNotice" method="post" class="notice-add-form mt-3 d-none" id="noticeAddForm">
+            @Html.AntiForgeryToken()
+            <label class="form-label notice-form-label" for="noticeText">Notice 內容</label>
+            <textarea id="noticeText"
+                      name="noticeText"
+                      class="form-control notice-textarea"
+                      rows="3"
+                      placeholder="輸入新的注意事項"></textarea>
+            <div class="d-flex justify-content-end gap-2 mt-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="cancelNoticeFormBtn">取消</button>
+                <button type="submit" class="btn btn-primary btn-sm">新增</button>
+            </div>
+        </form>
+
+        <div class="board-list board-list-wide mt-3">
+            @if (Model.Notices.Any())
+            {
+                @foreach (var notice in Model.Notices)
+                {
+                    <div class="board-item">
+                        <div class="board-tag">@notice.Tag</div>
+                        <div class="board-text">@notice.Text</div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="board-empty">目前沒有 Notice。</div>
+            }
+        </div>
+    </div>
+
+    @if (TempData["Success"] is string success)
+    {
+        <div class="alert alert-success">@success</div>
+    }
+
+    @if (TempData["Error"] is string error)
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+
+    @if (Model.Warnings.Any())
+    {
+        foreach (var warning in Model.Warnings)
+        {
+            <div class="alert alert-warning">@warning</div>
+        }
+    }
+
+    <div class="row g-4">
+        <div class="col-lg-9 order-lg-1">
+            <form asp-action="Save" method="post" id="scheduleSaveForm">
+                @Html.AntiForgeryToken()
+                <div id="scheduleHiddenInputs"></div>
+
+                <div class="schedule-box">
+                    <div class="schedule-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div class="FirstuserTitle mb-0">
+                            <span class="userTitleSpan caca">時程表</span>
+                        </div>
+
+                        <div class="schedule-actions">
+                            @if (Model.IsEditMode)
+                            {
+                                <a asp-action="Index" class="btn btn-outline-secondary">取消</a>
+                            }
+                            else
+                            {
+                                <a asp-action="Index" asp-route-edit="true" class="btn btn-warning">修改</a>
+                                <a asp-action="Index"
+                                   asp-route-progressOnly="@(!Model.IsProgressMode)"
+                                   class="btn btn-primary">
+                                    @(Model.IsProgressMode ? "結束進度" : "進度")
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    @if (Model.IsEditMode)
+                    {
+                        <div class="schedule-edit-hint">
+                            點選當天的機台排程可直接修改內容，也可以用「新增機台」加入新的測機項目。
+                        </div>
+                    }
+
+                    <div class="weekly-schedule-container">
+                        @for (var weekStart = 0; weekStart < Model.Days.Count; weekStart += 5)
+                        {
+                            <div class="week-block">
+                                <div class="week-grid">
+                                    @for (var offset = 0; offset < 5 && weekStart + offset < Model.Days.Count; offset++)
+                                    {
+                                        var day = Model.Days[weekStart + offset];
+                                        var dayCssClass = day.IsToday ? "day-card today" : "day-card";
+
+                                        <div class="@dayCssClass">
+                                            <div class="day-header-top">@day.Date.ToString("(ddd)", culture)</div>
+                                            <div class="day-header-date">@day.Date.ToString("M月d日", culture)</div>
+
+                                            <div class="day-content">
+                                                @if (day.Entries.Any())
+                                                {
+                                                    @for (var entryIndex = 0; entryIndex < day.Entries.Count; entryIndex++)
+                                                    {
+                                                        var entry = day.Entries[entryIndex];
+                                                        var itemCss = Model.IsEditMode
+                                                            ? $"schedule-item {GetProgressColorClass(entry.Progress)} schedule-item-clickable"
+                                                            : $"schedule-item {GetProgressColorClass(entry.Progress)}";
+
+                                                        <button type="button"
+                                                                class="@itemCss"
+                                                                data-date="@day.Date.ToString("yyyy-MM-dd")"
+                                                                data-entry-index="@entryIndex"
+                                                                data-mode="edit"
+                                                                disabled="@(!Model.IsEditMode)">
+                                                            <span class="schedule-item-title">@entry.TestItem</span>
+                                                            <span class="schedule-item-progress">
+                                                                @(Model.IsProgressMode ? $"{entry.Progress}%" : $"進度 {entry.Progress}%")
+                                                            </span>
+                                                        </button>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <div class="empty-schedule">目前沒有排程</div>
+                                                }
+
+                                                @if (Model.IsEditMode)
+                                                {
+                                                    <button type="button"
+                                                            class="schedule-add-button"
+                                                            data-date="@day.Date.ToString("yyyy-MM-dd")"
+                                                            data-mode="add">
+                                                        新增機台
+                                                    </button>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="col-lg-3 order-lg-2">
+            <div class="reminder-box reminder-box-side">
+                <div class="FirstuserTitle">
+                    <span class="userTitleSpan caca">Deadline is coming</span>
+                </div>
+
+                <div class="reminderlist">
+                    @if (Model.Reminders.Any())
+                    {
+                        foreach (var item in Model.Reminders)
+                        {
+                            <div class="reminder-item reminder-row">
+                                <div class="reminder-text">
+                                    <strong>@item.Line</strong>
+                                    @if (!string.IsNullOrWhiteSpace(item.MachineName))
+                                    {
+                                        <span>- @item.MachineName</span>
+                                    }
+                                    <br />
+                                    1A 期限：@item.OneADeadline?.ToString("yyyy/MM/dd")
+                                    <span class="reminder-days">@GetReminderText(item.DaysRemaining)</span>
+                                </div>
+
+                                @if (item.OneADeadline.HasValue)
+                                {
+                                    <form asp-action="HideReminder" method="post" class="reminder-action-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="line" value="@item.Line" />
+                                        <input type="hidden" name="oneADeadline" value="@item.OneADeadline.Value.ToString("yyyy-MM-dd")" />
+                                        <label class="reminder-check-label">
+                                            <input type="checkbox" class="reminder-check-input" onchange="this.form.submit()" />
+                                            <span>已排程</span>
+                                        </label>
+                                    </form>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="reminder-item">目前沒有 14 天內到期的項目。</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.IsEditMode)
+{
+    <div class="modal fade" id="scheduleEditModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="scheduleEditModalTitle">修改機台資料</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="schedule-modal-card">
+                        <label class="schedule-edit-label" for="modalTestItem">項目</label>
+                        <input id="modalTestItem" type="text" class="form-control" placeholder="要測機的項目" />
+
+                        <label class="schedule-edit-label" for="modalProgress">進度</label>
+                        <input id="modalProgress" type="number" min="0" max="100" class="form-control modal-progress-input" />
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button type="button" class="btn btn-outline-danger" id="deleteScheduleBtn">刪除這台機台</button>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-success" id="saveScheduleBtn">儲存到資料庫</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    @if (Model.IsEditMode)
+    {
+        <script id="oneAtimeScheduleState" type="application/json">@Html.Raw(scheduleJson)</script>
+    }
+
+    <script src="~/js/OneAtimePageView.js" asp-append-version="true"></script>
+}

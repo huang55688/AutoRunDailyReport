@@ -1,0 +1,67 @@
+﻿@model AutoRunDailyReport.Models.PortSettingPageViewModel
+@{
+    ViewData["Title"] = "port設置";
+}
+
+<link rel="stylesheet" href="~/css/port-setting.css" asp-append-version="true" />
+
+<div class="container-fluid port-page py-4">
+    <div class="port-page-header mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div class="port-title-wrap">
+            <span class="port-title">port設置</span>
+        </div>
+        <a class="btn port-api-button"
+           href="/api/portsetting/test-connection"
+           target="_blank"
+           rel="noopener noreferrer">測試 API</a>
+    </div>
+
+    @if (Model.Warnings.Any())
+    {
+        foreach (var warning in Model.Warnings)
+        {
+            <div class="port-warning mb-3">@warning</div>
+        }
+    }
+
+    <div class="port-table-shell">
+        <div class="port-table-wrap">
+            <div class="table-responsive">
+                <table class="table port-table mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Line</th>
+                            <th>1A Deadline</th>
+                            <th>MESMachineNo_String</th>
+                            <th>MESSubEQNo_String</th>
+                            <th>MachineDtIID</th>
+                            <th>ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Items.Any())
+                        {
+                            foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td>@item.Line</td>
+                                    <td>@item.OneADeadline?.ToString("yyyy/MM/dd")</td>
+                                    <td><code>@(string.IsNullOrWhiteSpace(item.MESMachineNo_String) ? "-" : item.MESMachineNo_String)</code></td>
+                                    <td><code>@(string.IsNullOrWhiteSpace(item.MESSubEQNo_String) ? "-" : item.MESSubEQNo_String)</code></td>
+                                    <td><code>@(string.IsNullOrWhiteSpace(item.MachineDtIID) ? "-" : item.MachineDtIID)</code></td>
+                                    <td><code>@(string.IsNullOrWhiteSpace(item.PortId) ? "-" : item.PortId)</code></td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="6" class="port-empty-state">目前沒有今天起 14 天內到期的 Line 資料。</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

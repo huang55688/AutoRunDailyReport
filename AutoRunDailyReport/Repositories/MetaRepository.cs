@@ -71,6 +71,58 @@ ORDER BY s.Line;";
             return await conn.QueryFirstOrDefaultAsync<MesMachinesMetaDto>(sql, new { Line = line });
         }
 
+        public async Task<IEnumerable<ReminderItemDto>> GetUpcomingRemindersAsync(int days)
+        {
+            await EnsureReminderHiddenTableExistsAsync();
+
+            const string sql = @"
+SELECT
+    meta.Line,
+    MAX(sync.MESMachineName) AS MachineName,
+    meta.FirstADeadline AS OneADeadline
+FROM dbo.MesMachinesMeta meta
+LEFT JOIN dbo.MesMachinesSync sync ON sync.Line = meta.Line
+LEFT JOIN dbo.OneATimeReminderHidden hidden
+    ON hidden.Line = meta.Line
+   AND hidden.DeadlineDate = CAST(meta.FirstADeadline AS date)
+WHERE meta.FirstADeadline IS NOT NULL
+  AND CAST(meta.FirstADeadline AS date) >= CAST(GETDATE() AS date)
+  AND CAST(meta.FirstADeadline AS date) <= DATEADD(DAY, @Days, CAST(GETDATE() AS date))
+  AND hidden.Line IS NULL
+GROUP BY meta.Line, meta.FirstADeadline
+ORDER BY meta.FirstADeadline, meta.Line;";
+
+            using var conn = new SqlConnection(_connectionString);
+            return await conn.QueryAsync<ReminderItemDto>(sql, new { Days = days });
+        }
+
+        public async Task HideReminderAsync(string line, DateTime deadlineDate)
+        {
+            await EnsureReminderHiddenTableExistsAsync();
+
+            const string sql = @"
+MERGE dbo.OneATimeReminderHidden AS target
+USING (
+    SELECT
+        @Line AS Line,
+        @DeadlineDate AS DeadlineDate
+) AS source
+ON target.Line = source.Line
+AND target.DeadlineDate = source.DeadlineDate
+WHEN MATCHED THEN
+    UPDATE SET HiddenAt = GETDATE()
+WHEN NOT MATCHED THEN
+    INSERT (Line, DeadlineDate, HiddenAt)
+    VALUES (@Line, @DeadlineDate, GETDATE());";
+
+            using var conn = new SqlConnection(_connectionString);
+            await conn.ExecuteAsync(sql, new
+            {
+                Line = line,
+                DeadlineDate = deadlineDate.Date
+            });
+        }
+
         /// <summary>
         /// 更新單一 Line 的手動欄位（不覆蓋 FirstADeadline）。
         /// </summary>
@@ -140,6 +192,23 @@ WHEN MATCHED THEN
 WHEN NOT MATCHED BY TARGET THEN
     INSERT (Line, FirstADeadline, UpdatedAt)
     VALUES (source.Line, source.FirstADeadline, GETDATE());";
+
+            using var conn = new SqlConnection(_connectionString);
+            await conn.ExecuteAsync(sql);
+        }
+
+        private async Task EnsureReminderHiddenTableExistsAsync()
+        {
+            const string sql = @"
+IF OBJECT_ID(N'[dbo].[OneATimeReminderHidden]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[OneATimeReminderHidden] (
+        [Line]         NVARCHAR(200) NOT NULL,
+        [DeadlineDate] DATE          NOT NULL,
+        [HiddenAt]     DATETIME      NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT [PK_OneATimeReminderHidden] PRIMARY KEY ([Line], [DeadlineDate])
+    );
+END;";
 
             using var conn = new SqlConnection(_connectionString);
             await conn.ExecuteAsync(sql);
