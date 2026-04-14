@@ -26,7 +26,13 @@
                             <a class="nav-link text-dark" asp-area="" asp-controller="Meta" asp-action="Index">Line 資料管理</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="ChartView" asp-action="InLineTest">InLine Test 圖表</a>
+                            <a class="nav-link text-dark" asp-area="" asp-controller="OneATime" asp-action="Index">測機時程</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="PortSetting" asp-action="Index">port設置</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Ip" asp-action="Index">IP設置</a>
                         </li>
                     </ul>
                 </div>
@@ -50,3 +56,4 @@
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
+

@@ -1,0 +1,115 @@
+﻿body {
+    background: linear-gradient(180deg, #f7f3df 0%, #f4f4f4 28%, #f4f4f4 100%);
+}
+
+.port-page {
+    color: #2f2618;
+}
+
+.port-page-header,
+.port-table-shell {
+    background: linear-gradient(180deg, #fffaf0 0%, #ffffff 100%);
+    border: 2px solid #dcc9a3;
+    box-shadow: 0 12px 28px rgba(91, 69, 34, 0.06);
+}
+
+.port-page-header {
+    padding: 20px 24px;
+}
+
+.port-title-wrap {
+    margin-bottom: 0;
+}
+
+.port-title {
+    display: inline-block;
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    border-bottom: 4px solid #76c784;
+    padding-bottom: 4px;
+}
+
+.port-api-button {
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 1px solid #b08a52;
+    background: linear-gradient(180deg, #ffffff 0%, #f8edd0 100%);
+    color: #73481f;
+    font-weight: 700;
+}
+
+.port-api-button:hover,
+.port-api-button:focus {
+    background: linear-gradient(180deg, #fff8e8 0%, #f4e0a9 100%);
+    color: #5b3511;
+    border-color: #9e7843;
+}
+
+.port-warning {
+    padding: 14px 16px;
+    background: #fff4db;
+    border: 1px solid #e2b457;
+    border-left: 6px solid #c78018;
+    color: #74490d;
+    box-shadow: 0 8px 18px rgba(142, 90, 17, 0.08);
+}
+
+.port-table-wrap {
+    padding: 0;
+}
+
+.port-table {
+    --bs-table-bg: transparent;
+    margin: 0;
+}
+
+.port-table thead th {
+    background: #f2e5b9;
+    color: #423317;
+    border-bottom: 1px solid #dbc78e;
+    font-size: 14px;
+    font-weight: 800;
+    padding: 14px 16px;
+    white-space: nowrap;
+}
+
+.port-table tbody td {
+    padding: 14px 16px;
+    border-color: #ece4d2;
+    vertical-align: middle;
+    color: #3b3126;
+    background-color: #ffffff;
+}
+
+.port-table tbody tr:nth-child(even) td {
+    background-color: #fffdf9;
+}
+
+.port-table tbody tr:hover td {
+    background-color: #fff7e6;
+}
+
+.port-table code {
+    background-color: #fff7db;
+    color: #7a4e12;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 0.95em;
+}
+
+.port-empty-state {
+    padding: 48px 20px !important;
+    text-align: center;
+    color: #7c7264 !important;
+    background: #fffdf9 !important;
+    font-size: 16px;
+}
+
+@media (max-width: 992px) {
+    .port-page-header {
+        padding: 18px;
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+}

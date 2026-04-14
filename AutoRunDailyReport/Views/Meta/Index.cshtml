@@ -1,85 +1,106 @@
-@model IEnumerable<AutoRunDailyReport.Models.MesMachinesMetaDto>
+﻿@model IEnumerable<AutoRunDailyReport.Models.MesMachinesMetaDto>
+@using System.Globalization
 @{
     ViewData["Title"] = "Line 資料管理";
+    var culture = CultureInfo.GetCultureInfo("zh-TW");
+    var items = Model?.ToList() ?? new List<AutoRunDailyReport.Models.MesMachinesMetaDto>();
+}
+@functions {
+    public string DisplayOrDash(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+
+    public string GetDeadlineBadgeClass(DateTime? deadline)
+    {
+        if (!deadline.HasValue)
+            return "meta-badge meta-badge-empty";
+
+        var daysLeft = (deadline.Value.Date - DateTime.Today).Days;
+        if (daysLeft < 0)
+            return "meta-badge meta-badge-overdue";
+        if (daysLeft <= 7)
+            return "meta-badge meta-badge-urgent";
+        return "meta-badge meta-badge-safe";
+    }
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0">Line 資料管理</h2>
-</div>
+<link rel="stylesheet" href="~/css/meta.css" asp-append-version="true" />
 
-@if (TempData["Success"] is string success)
-{
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        @success
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+<div class="container-fluid meta-page py-4">
+    <div class="meta-page-header mb-4">
+        <div class="meta-title-wrap">
+            <span class="meta-title">Line 資料管理</span>
+        </div>
     </div>
-}
 
-@if (ViewBag.Warning is string warning)
-{
-    <div class="alert alert-warning">@warning</div>
-}
+    @if (TempData["Success"] is string success)
+    {
+        <div class="meta-alert meta-alert-success mb-3">@success</div>
+    }
 
-<div class="card">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover table-sm mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Line</th>
-                        <th>1A Deadline</th>
-                        <th>State</th>
-                        <th>AIOT Owner</th>
-                        <th>Owner</th>
-                        <th>Test Status</th>
-                        <th>Schedule</th>
-                        <th>上次更新</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var item in Model)
-                    {
+    @if (ViewBag.Warning is string warning)
+    {
+        <div class="meta-alert meta-alert-warning mb-3">@warning</div>
+    }
+
+    <div class="meta-table-shell">
+        <div class="meta-table-wrap">
+            <div class="table-responsive">
+                <table class="table meta-table mb-0 align-middle">
+                    <thead>
                         <tr>
-                            <td class="fw-semibold">@item.Line</td>
-                            <td class="text-nowrap">
-                                @if (item.FirstADeadline.HasValue)
-                                {
-                                    var daysLeft = (item.FirstADeadline.Value - DateTime.Today).TotalDays;
-                                    var badgeClass = daysLeft < 0 ? "bg-danger"
-                                                   : daysLeft <= 7 ? "bg-warning text-dark"
-                                                   : "bg-success";
-                                    <span class="badge @badgeClass">
-                                        @item.FirstADeadline.Value.ToString("yyyy/MM/dd")
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">—</span>
-                                }
-                            </td>
-                            <td>@(item.State ?? "—")</td>
-                            <td>@(item.AiotOwner ?? "—")</td>
-                            <td>@(item.Owner ?? "—")</td>
-                            <td>@(item.TestStatus ?? "—")</td>
-                            <td>@(item.Schedule ?? "—")</td>
-                            <td class="text-muted text-nowrap">
-                                @(item.UpdatedAt?.ToString("yyyy/MM/dd HH:mm") ?? "—")
-                            </td>
-                            <td>
-                                <a asp-action="Edit" asp-route-id="@item.Line"
-                                   class="btn btn-sm btn-outline-primary">編輯</a>
-                            </td>
+                            <th>Line</th>
+                            <th>1A Deadline</th>
+                            <th>State</th>
+                            <th>AIOT Owner</th>
+                            <th>Owner</th>
+                            <th>Test Status</th>
+                            <th>Schedule</th>
+                            <th>最後更新</th>
+                            <th></th>
                         </tr>
-                    }
-                    @if (!Model.Any())
-                    {
-                        <tr>
-                            <td colspan="9" class="text-center text-muted py-4">無資料</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @if (items.Any())
+                        {
+                            foreach (var item in items)
+                            {
+                                <tr>
+                                    <td class="meta-line-cell">@item.Line</td>
+                                    <td class="text-nowrap">
+                                        @if (item.FirstADeadline.HasValue)
+                                        {
+                                            <span class="@GetDeadlineBadgeClass(item.FirstADeadline)">
+                                                @item.FirstADeadline.Value.ToString("yyyy/MM/dd", culture)
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="meta-badge meta-badge-empty">-</span>
+                                        }
+                                    </td>
+                                    <td>@DisplayOrDash(item.State)</td>
+                                    <td>@DisplayOrDash(item.AiotOwner)</td>
+                                    <td>@DisplayOrDash(item.Owner)</td>
+                                    <td>@DisplayOrDash(item.TestStatus)</td>
+                                    <td>@DisplayOrDash(item.Schedule)</td>
+                                    <td class="meta-date-cell">@(item.UpdatedAt?.ToString("yyyy/MM/dd HH:mm") ?? "-")</td>
+                                    <td class="meta-action-cell">
+                                        <a asp-action="Edit" asp-route-id="@item.Line" class="btn meta-edit-button">編輯</a>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="9" class="meta-empty-state">目前沒有任何 Line 資料。</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

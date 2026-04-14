@@ -1,0 +1,236 @@
+body {
+    background: linear-gradient(180deg, #f7f3df 0%, #f4f4f4 28%, #f4f4f4 100%);
+}
+
+.ip-page {
+    color: #2f2618;
+}
+
+.ip-page-header,
+.ip-table-shell {
+    background: linear-gradient(180deg, #fffaf0 0%, #ffffff 100%);
+    border: 2px solid #dcc9a3;
+    box-shadow: 0 12px 28px rgba(91, 69, 34, 0.06);
+}
+
+.ip-page-header {
+    padding: 20px 24px;
+}
+
+.ip-title {
+    display: inline-block;
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    border-bottom: 4px solid #76c784;
+    padding-bottom: 4px;
+}
+
+.ip-subtitle {
+    margin-top: 10px;
+    color: #75654a;
+    font-size: 14px;
+}
+
+.ip-import-form {
+    margin-top: 18px;
+}
+
+.ip-import-row {
+    display: flex;
+    align-items: end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.ip-form-label {
+    min-width: 60px;
+    margin-bottom: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #5b4630;
+}
+
+.ip-line-input {
+    max-width: 320px;
+    border-radius: 10px;
+    border-color: #d5c2a0;
+}
+
+.ip-import-button,
+.ip-save-button {
+    border-radius: 10px;
+    font-weight: 700;
+}
+
+.ip-import-button {
+    padding: 10px 16px;
+    border: 1px solid #b08a52;
+    background: linear-gradient(180deg, #ffffff 0%, #f8edd0 100%);
+    color: #73481f;
+}
+
+.ip-import-button:hover,
+.ip-import-button:focus {
+    background: linear-gradient(180deg, #fff8e8 0%, #f4e0a9 100%);
+    color: #5b3511;
+    border-color: #9e7843;
+}
+
+.ip-save-button {
+    min-width: 88px;
+    border: 1px solid #6f9b58;
+    background: linear-gradient(180deg, #ffffff 0%, #dff0d5 100%);
+    color: #355b24;
+}
+
+.ip-save-button:hover,
+.ip-save-button:focus {
+    background: linear-gradient(180deg, #effae8 0%, #cde9bc 100%);
+    color: #28461c;
+    border-color: #5d8449;
+}
+
+.ip-alert {
+    padding: 14px 16px;
+    box-shadow: 0 8px 18px rgba(91, 69, 34, 0.08);
+}
+
+.ip-alert-success {
+    background: #edf9ef;
+    border: 1px solid #89c997;
+    border-left: 6px solid #2f8b42;
+    color: #255830;
+}
+
+.ip-alert-error {
+    background: #fff0ed;
+    border: 1px solid #e39c8f;
+    border-left: 6px solid #c3543f;
+    color: #7a2f1e;
+}
+
+.ip-alert-warning {
+    background: #fff4db;
+    border: 1px solid #e2b457;
+    border-left: 6px solid #c78018;
+    color: #74490d;
+}
+
+.ip-alert-highlight {
+    background: #eef8ff;
+    border: 1px solid #9ecbea;
+    border-left: 6px solid #2b78b8;
+    color: #17486f;
+}
+
+.ip-table {
+    --bs-table-bg: transparent;
+    margin: 0;
+}
+
+.ip-table thead th {
+    background: #f2e5b9;
+    color: #423317;
+    border-bottom: 1px solid #dbc78e;
+    font-size: 14px;
+    font-weight: 800;
+    padding: 14px 16px;
+    white-space: nowrap;
+}
+
+.ip-table tbody td {
+    padding: 14px 16px;
+    border-color: #ece4d2;
+    vertical-align: middle;
+    color: #3b3126;
+    background-color: #ffffff;
+}
+
+.ip-table tbody tr:nth-child(even) td {
+    background-color: #fffdf9;
+}
+
+.ip-table tbody tr:hover td {
+    background-color: #fff7e6;
+}
+
+.ip-table tbody tr.ip-row-highlight td {
+    background: linear-gradient(180deg, #eef8ff 0%, #f7fbff 100%);
+}
+
+.ip-table tbody tr.ip-row-highlight:nth-child(even) td {
+    background: linear-gradient(180deg, #e8f5ff 0%, #f3faff 100%);
+}
+
+.ip-table code {
+    background-color: #fff7db;
+    color: #7a4e12;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 0.95em;
+}
+
+.ip-inline-form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ip-input {
+    min-width: 200px;
+    border-radius: 10px;
+    border-color: #d5c2a0;
+}
+
+.ip-status-tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 84px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #fff4db;
+    color: #8a5711;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.ip-empty-state {
+    padding: 48px 20px !important;
+    text-align: center;
+    color: #7c7264 !important;
+    background: #fffdf9 !important;
+    font-size: 16px;
+}
+
+@media (max-width: 992px) {
+    .ip-page-header {
+        padding: 18px;
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+
+    .ip-inline-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .ip-import-row {
+        align-items: stretch;
+    }
+
+    .ip-form-label {
+        min-width: 0;
+    }
+
+    .ip-line-input {
+        max-width: none;
+        width: 100%;
+    }
+
+    .ip-input {
+        min-width: 0;
+        width: 100%;
+    }
+}

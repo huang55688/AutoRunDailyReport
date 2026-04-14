@@ -1,95 +1,93 @@
-@model AutoRunDailyReport.Models.MesMachinesMetaDto
+﻿@model AutoRunDailyReport.Models.MesMachinesMetaDto
+@using System.Globalization
 @{
     ViewData["Title"] = $"編輯 Line：{Model.Line}";
+    var culture = CultureInfo.GetCultureInfo("zh-TW");
+    var today = DateTime.Today;
+    int? daysLeft = Model.FirstADeadline.HasValue
+        ? (Model.FirstADeadline.Value.Date - today).Days
+        : null;
+
+    var deadlineClass = !Model.FirstADeadline.HasValue
+        ? "meta-badge meta-badge-empty"
+        : daysLeft < 0
+            ? "meta-badge meta-badge-overdue"
+            : daysLeft <= 7
+                ? "meta-badge meta-badge-urgent"
+                : "meta-badge meta-badge-safe";
+
+    var deadlineHint = !daysLeft.HasValue
+        ? "尚未產生"
+        : daysLeft.Value < 0
+            ? $"已逾期 {-daysLeft.Value} 天"
+            : daysLeft.Value == 0
+                ? "今天到期"
+                : $"剩 {daysLeft.Value} 天";
 }
 
-<div class="row justify-content-center">
-    <div class="col-lg-7 col-md-9">
+<link rel="stylesheet" href="~/css/meta.css" asp-append-version="true" />
 
-        <div class="d-flex align-items-center mb-4 gap-3">
-            <a asp-action="Index" class="btn btn-outline-secondary btn-sm">← 返回列表</a>
-            <h3 class="mb-0">@Model.Line</h3>
+<div class="container-fluid meta-page py-4">
+    <div class="meta-edit-shell">
+        <div class="d-flex align-items-center mb-4 gap-3 flex-wrap">
+            <a asp-action="Index" class="meta-back-link">返回列表</a>
+            <h3 class="mb-0 meta-edit-title">@Model.Line</h3>
         </div>
 
-        <!-- 系統計算欄位（唯讀） -->
-        <div class="card mb-4 border-0 bg-light">
-            <div class="card-body py-3">
-                <div class="row align-items-center">
-                    <div class="col-sm-4 text-muted small">1A Deadline（系統計算）</div>
-                    <div class="col-sm-8 fw-semibold">
-                        @if (Model.FirstADeadline.HasValue)
-                        {
-                            var daysLeft = (Model.FirstADeadline.Value - DateTime.Today).TotalDays;
-                            var badgeClass = daysLeft < 0 ? "bg-danger"
-                                           : daysLeft <= 7 ? "bg-warning text-dark"
-                                           : "bg-success";
-                            <span class="badge @badgeClass fs-6">
-                                @Model.FirstADeadline.Value.ToString("yyyy/MM/dd")
-                            </span>
-                            <span class="text-muted ms-2 small">
-                                @(daysLeft < 0 ? $"逾期 {(int)-daysLeft} 天"
-                                               : $"還有 {(int)daysLeft} 天")
-                            </span>
-                        }
-                        else
-                        {
-                            <span class="text-muted">尚未計算（需先執行同步）</span>
-                        }
-                    </div>
-                </div>
+        <div class="meta-deadline-panel mb-4">
+            <div class="meta-deadline-label">1A Deadline</div>
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                @if (Model.FirstADeadline.HasValue)
+                {
+                    <span class="@deadlineClass">@Model.FirstADeadline.Value.ToString("yyyy/MM/dd", culture)</span>
+                    <span class="meta-deadline-hint">@deadlineHint</span>
+                }
+                else
+                {
+                    <span class="@deadlineClass">尚未產生</span>
+                }
             </div>
         </div>
 
-        <!-- 手動編輯表單 -->
-        <form asp-action="Edit" method="post">
+        <form asp-action="Edit" method="post" class="meta-form-shell">
             <input type="hidden" asp-for="Line" />
 
-            <div class="card">
-                <div class="card-body">
-
-                    <div class="row g-3">
-
-                        <div class="col-sm-6">
-                            <label asp-for="State" class="form-label">State</label>
-                            <input asp-for="State" class="form-control" placeholder="輸入狀態" />
-                        </div>
-
-                        <div class="col-sm-6">
-                            <label asp-for="TestStatus" class="form-label">Test Status</label>
-                            <input asp-for="TestStatus" class="form-control" placeholder="輸入測試狀態" />
-                        </div>
-
-                        <div class="col-sm-6">
-                            <label asp-for="AiotOwner" class="form-label">AIOT Owner</label>
-                            <input asp-for="AiotOwner" class="form-control" placeholder="輸入 AIOT 負責人" />
-                        </div>
-
-                        <div class="col-sm-6">
-                            <label asp-for="Owner" class="form-label">Owner</label>
-                            <input asp-for="Owner" class="form-control" placeholder="輸入負責人" />
-                        </div>
-
-                        <div class="col-12">
-                            <label asp-for="Schedule" class="form-label">Schedule</label>
-                            <input asp-for="Schedule" class="form-control" placeholder="輸入排程" />
-                        </div>
-
-                        <div class="col-12">
-                            <label asp-for="Illustrate" class="form-label">Illustrate（備註說明）</label>
-                            <textarea asp-for="Illustrate" class="form-control" rows="4"
-                                      placeholder="輸入備註說明"></textarea>
-                        </div>
-
-                    </div>
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <label asp-for="State" class="form-label meta-form-label">State</label>
+                    <input asp-for="State" class="form-control meta-input" placeholder="請輸入狀態" />
                 </div>
 
-                <div class="card-footer d-flex justify-content-end gap-2">
-                    <a asp-action="Index" class="btn btn-outline-secondary">取消</a>
-                    <button type="submit" class="btn btn-primary">儲存</button>
+                <div class="col-sm-6">
+                    <label asp-for="TestStatus" class="form-label meta-form-label">Test Status</label>
+                    <input asp-for="TestStatus" class="form-control meta-input" placeholder="請輸入測試狀態" />
+                </div>
+
+                <div class="col-sm-6">
+                    <label asp-for="AiotOwner" class="form-label meta-form-label">AIOT Owner</label>
+                    <input asp-for="AiotOwner" class="form-control meta-input" placeholder="請輸入 AIOT 負責人" />
+                </div>
+
+                <div class="col-sm-6">
+                    <label asp-for="Owner" class="form-label meta-form-label">Owner</label>
+                    <input asp-for="Owner" class="form-control meta-input" placeholder="請輸入負責人" />
+                </div>
+
+                <div class="col-12">
+                    <label asp-for="Schedule" class="form-label meta-form-label">Schedule</label>
+                    <input asp-for="Schedule" class="form-control meta-input" placeholder="請輸入時程" />
+                </div>
+
+                <div class="col-12">
+                    <label asp-for="Illustrate" class="form-label meta-form-label">Illustrate</label>
+                    <textarea asp-for="Illustrate" class="form-control meta-textarea" rows="5" placeholder="請輸入補充說明"></textarea>
                 </div>
             </div>
 
+            <div class="meta-form-actions mt-4">
+                <a asp-action="Index" class="btn meta-secondary-button">取消</a>
+                <button type="submit" class="btn meta-primary-button">儲存</button>
+            </div>
         </form>
-
     </div>
 </div>
