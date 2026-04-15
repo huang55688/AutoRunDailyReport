@@ -1,4 +1,4 @@
-using AutoRunDailyReport.Models;
+﻿using AutoRunDailyReport.Models;
 using Dapper;
 using Microsoft.Data.SqlClient;
 
@@ -79,7 +79,7 @@ SELECT
     [EQUIPMENTID] AS EquipmentId,
     [ip] AS Ip
 FROM [dbo].[ip]
-WHERE [LINEID] LIKE N'SKL%'
+WHERE UPPER(LEFT(LTRIM(RTRIM([LINEID])), 3)) = N'SKL'
 ORDER BY [LINEID], [EQUIPMENTID];";
 
             using var conn = new SqlConnection(_targetConnectionString);
@@ -101,7 +101,7 @@ SELECT
 FROM [dbo].[MesMachinesSync]
 WHERE NULLIF(LTRIM(RTRIM([MESMachineNo_String])), N'') IS NOT NULL
   AND NULLIF(LTRIM(RTRIM([MESSubEQNo_String])), N'') IS NOT NULL
-  AND LTRIM(RTRIM([MESMachineNo_String])) LIKE N'SKL%'
+  AND UPPER(LEFT(LTRIM(RTRIM([MESMachineNo_String])), 3)) = N'SKL'
   AND UPPER(LTRIM(RTRIM([MESMachineNo_String]))) LIKE UPPER(N'%' + @LineId + N'%')
 GROUP BY CAST(LTRIM(RTRIM([MESMachineNo_String])) AS NVARCHAR(100))
 ORDER BY LineId;";
@@ -131,7 +131,7 @@ SELECT DISTINCT
 FROM [dbo].[MesMachinesSync]
 WHERE NULLIF(LTRIM(RTRIM([MESMachineNo_String])), N'') IS NOT NULL
   AND NULLIF(LTRIM(RTRIM([MESSubEQNo_String])), N'') IS NOT NULL
-  AND LTRIM(RTRIM([MESMachineNo_String])) LIKE N'SKL%'
+  AND UPPER(LEFT(LTRIM(RTRIM([MESMachineNo_String])), 3)) = N'SKL'
   AND UPPER(LTRIM(RTRIM([MESMachineNo_String]))) = UPPER(@LineId)
 ORDER BY [MESSubEQNo_String];";
 

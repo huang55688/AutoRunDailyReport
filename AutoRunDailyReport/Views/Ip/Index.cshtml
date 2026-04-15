@@ -1,4 +1,4 @@
-@model AutoRunDailyReport.Models.IpPageViewModel
+﻿@model AutoRunDailyReport.Models.IpPageViewModel
 @{
     ViewData["Title"] = "IP設置";
 }
@@ -10,6 +10,11 @@
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
             <div class="ip-title-wrap">
                 <span class="ip-title">IP設置</span>
+                <div class="ip-subtitle">
+                    先輸入 LINEID 關鍵字搜尋候選清單。候選值來自 [SM_AIOT_KF].[dbo].[MesMachinesSync] 的
+                    MESMachineNo_String，並只會顯示開頭為 SKL 的資料。選到正確候選後，再按匯入把對應的
+                    MESMachineNo_String / MESSubEQNo_String 寫進 [SM_AIOT_KF].[dbo].[ip]。
+                </div>
             </div>
         </div>
 
@@ -83,7 +88,7 @@
             else
             {
                 <div class="ip-empty-state ip-empty-inline">
-                    找不到符合「@Model.CurrentLineId」且為 SKL% 的候選 LINEID。
+                    找不到符合「@Model.CurrentLineId」且開頭為 SKL 的候選 LINEID。
                 </div>
             }
         </div>
