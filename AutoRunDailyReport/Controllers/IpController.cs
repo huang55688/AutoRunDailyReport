@@ -8,7 +8,6 @@ namespace AutoRunDailyReport.Controllers
     public class IpController : Controller
     {
         private const string HighlightedKeysTempDataKey = "Ip.HighlightedKeys";
-        private const string CurrentLineIdTempDataKey = "Ip.CurrentLineId";
 
         private readonly IpRepository _ipRepository;
         private readonly ILogger<IpController> _logger;
@@ -20,14 +19,21 @@ namespace AutoRunDailyReport.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string? lineId = null)
         {
-            var model = new IpPageViewModel();
+            var model = new IpPageViewModel
+            {
+                CurrentLineId = lineId?.Trim() ?? string.Empty
+            };
 
             try
             {
                 model.HighlightedKeys = ReadHighlightedKeysFromTempData();
-                model.CurrentLineId = TempData[CurrentLineIdTempDataKey]?.ToString() ?? string.Empty;
+
+                if (!string.IsNullOrWhiteSpace(model.CurrentLineId))
+                {
+                    model.SearchCandidates = (await _ipRepository.SearchCandidatesAsync(model.CurrentLineId)).ToList();
+                }
 
                 model.Items = (await _ipRepository.GetAllAsync())
                     .OrderBy(item => model.HighlightedKeys.Contains(item.GetRowKey()) ? 0 : 1)
@@ -46,11 +52,27 @@ namespace AutoRunDailyReport.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ImportByLineId(string lineId)
+        public IActionResult SearchCandidates(string lineId)
         {
             if (string.IsNullOrWhiteSpace(lineId))
             {
                 TempData["Error"] = "請先輸入 LINEID。";
+                return RedirectToAction(nameof(Index));
+            }
+
+            return RedirectToAction(nameof(Index), new
+            {
+                lineId = lineId.Trim()
+            });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ImportByLineId(string lineId)
+        {
+            if (string.IsNullOrWhiteSpace(lineId))
+            {
+                TempData["Error"] = "請先選擇要匯入的 LINEID。";
                 return RedirectToAction(nameof(Index));
             }
 
@@ -59,19 +81,25 @@ namespace AutoRunDailyReport.Controllers
                 var normalizedLineId = lineId.Trim();
                 var result = await _ipRepository.ImportByLineIdAsync(normalizedLineId);
 
-                TempData[CurrentLineIdTempDataKey] = normalizedLineId;
                 TempData[HighlightedKeysTempDataKey] = JsonSerializer.Serialize(result.ImportedKeys);
                 TempData["Success"] = result.ImportedCount == 0
-                    ? $"在 {result.SourceDatabase}.dbo.{result.SourceTable} 找不到符合 LINEID = {result.LineId} 且 MESMachineNo_String 為 SKL% 的資料。"
+                    ? $"在 {result.SourceDatabase}.dbo.{result.SourceTable} 找不到 LINEID = {result.LineId} 且 MESMachineNo_String 為 SKL% 的資料。"
                     : $"已從 {result.SourceDatabase}.dbo.{result.SourceTable} 匯入 {result.ImportedCount} 筆資料到 dbo.ip，並將這次匯入的設備排到表格最上方。";
+
+                return RedirectToAction(nameof(Index), new
+                {
+                    lineId = normalizedLineId
+                });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to import equipment by LINEID {LineId}.", lineId);
                 TempData["Error"] = $"匯入 dbo.ip 失敗。{ex.GetBaseException().GetType().Name}: {ex.GetBaseException().Message}";
+                return RedirectToAction(nameof(Index), new
+                {
+                    lineId = lineId.Trim()
+                });
             }
-
-            return RedirectToAction(nameof(Index));
         }
 
         [HttpPost]
@@ -82,7 +110,10 @@ namespace AutoRunDailyReport.Controllers
                 string.IsNullOrWhiteSpace(request.EquipmentId))
             {
                 TempData["Error"] = "LINEID 與 EQUIPMENTID 不可為空。";
-                return RedirectToAction(nameof(Index));
+                return RedirectToAction(nameof(Index), new
+                {
+                    lineId = request.SearchLineId
+                });
             }
 
             try
@@ -96,7 +127,10 @@ namespace AutoRunDailyReport.Controllers
                 TempData["Error"] = $"儲存 IP 失敗。{ex.GetBaseException().GetType().Name}: {ex.GetBaseException().Message}";
             }
 
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction(nameof(Index), new
+            {
+                lineId = request.SearchLineId
+            });
         }
 
         private HashSet<string> ReadHighlightedKeysFromTempData()

@@ -87,6 +87,33 @@ ORDER BY [LINEID], [EQUIPMENTID];";
             return rows.ToList();
         }
 
+        public async Task<IReadOnlyList<IpSearchCandidateViewModel>> SearchCandidatesAsync(string lineId)
+        {
+            if (string.IsNullOrWhiteSpace(lineId))
+            {
+                return Array.Empty<IpSearchCandidateViewModel>();
+            }
+
+            const string sql = @"
+SELECT
+    CAST(LTRIM(RTRIM([MESMachineNo_String])) AS NVARCHAR(100)) AS LineId,
+    COUNT(DISTINCT CAST(LTRIM(RTRIM([MESSubEQNo_String])) AS NVARCHAR(100))) AS EquipmentCount
+FROM [dbo].[MesMachinesSync]
+WHERE NULLIF(LTRIM(RTRIM([MESMachineNo_String])), N'') IS NOT NULL
+  AND NULLIF(LTRIM(RTRIM([MESSubEQNo_String])), N'') IS NOT NULL
+  AND LTRIM(RTRIM([MESMachineNo_String])) LIKE N'SKL%'
+  AND UPPER(LTRIM(RTRIM([MESMachineNo_String]))) LIKE UPPER(N'%' + @LineId + N'%')
+GROUP BY CAST(LTRIM(RTRIM([MESMachineNo_String])) AS NVARCHAR(100))
+ORDER BY LineId;";
+
+            using var conn = new SqlConnection(_targetConnectionString);
+            var rows = await conn.QueryAsync<IpSearchCandidateViewModel>(sql, new
+            {
+                LineId = lineId.Trim()
+            });
+            return rows.ToList();
+        }
+
         public async Task<EquipmentImportResult> ImportByLineIdAsync(string lineId)
         {
             if (string.IsNullOrWhiteSpace(lineId))
@@ -98,14 +125,14 @@ ORDER BY [LINEID], [EQUIPMENTID];";
 
             const string sourceSql = @"
 SELECT DISTINCT
-    CAST([MESMachineNo_String] AS NVARCHAR(100)) AS LineId,
-    CAST([MESSubEQNo_String] AS NVARCHAR(100)) AS EquipmentId,
+    CAST(LTRIM(RTRIM([MESMachineNo_String])) AS NVARCHAR(100)) AS LineId,
+    CAST(LTRIM(RTRIM([MESSubEQNo_String])) AS NVARCHAR(100)) AS EquipmentId,
     CAST(NULL AS NVARCHAR(100)) AS Ip
 FROM [dbo].[MesMachinesSync]
-WHERE [MESMachineNo_String] = @LineId
-  AND [MESMachineNo_String] LIKE N'SKL%'
-  AND NULLIF(LTRIM(RTRIM([MESMachineNo_String])), N'') IS NOT NULL
+WHERE NULLIF(LTRIM(RTRIM([MESMachineNo_String])), N'') IS NOT NULL
   AND NULLIF(LTRIM(RTRIM([MESSubEQNo_String])), N'') IS NOT NULL
+  AND LTRIM(RTRIM([MESMachineNo_String])) LIKE N'SKL%'
+  AND UPPER(LTRIM(RTRIM([MESMachineNo_String]))) = UPPER(@LineId)
 ORDER BY [MESSubEQNo_String];";
 
             using var conn = new SqlConnection(_targetConnectionString);
