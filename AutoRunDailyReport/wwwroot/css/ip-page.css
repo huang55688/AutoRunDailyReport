@@ -175,25 +175,13 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
+    min-width: 320px;
 }
 
 .ip-input {
     min-width: 200px;
     border-radius: 10px;
     border-color: #d5c2a0;
-}
-
-.ip-status-tag {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 84px;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: #fff4db;
-    color: #8a5711;
-    font-size: 13px;
-    font-weight: 700;
 }
 
 .ip-empty-state {

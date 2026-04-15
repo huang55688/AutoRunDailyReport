@@ -6,23 +6,15 @@ namespace AutoRunDailyReport.Repositories
 {
     public class IpRepository
     {
-        private const string SourceDatabaseName = "DIAEAP_UNIMICRON";
-        private const string SourceTableName = "SBRM_EQUIPMENT";
+        private const string SourceDatabaseName = "SM_AIOT_KF";
+        private const string SourceTableName = "MesMachinesSync";
 
         private readonly string _targetConnectionString;
-        private readonly string _sourceConnectionString;
 
         public IpRepository(IConfiguration configuration)
         {
             _targetConnectionString = configuration.GetConnectionString("TargetConnection")
                 ?? throw new InvalidOperationException("TargetConnection is missing.");
-
-            var sourceBuilder = new SqlConnectionStringBuilder(_targetConnectionString)
-            {
-                InitialCatalog = SourceDatabaseName
-            };
-
-            _sourceConnectionString = sourceBuilder.ConnectionString;
         }
 
         public async Task EnsureTableExistsAsync()
@@ -33,10 +25,44 @@ BEGIN
     CREATE TABLE [dbo].[ip] (
         [LINEID]      NVARCHAR(100) NOT NULL,
         [EQUIPMENTID] NVARCHAR(100) NOT NULL,
-        [EQUIPMENTNO] NVARCHAR(100) NOT NULL,
         [ip]          NVARCHAR(100) NULL,
-        CONSTRAINT [PK_ip] PRIMARY KEY ([LINEID], [EQUIPMENTID], [EQUIPMENTNO])
+        CONSTRAINT [PK_ip] PRIMARY KEY ([LINEID], [EQUIPMENTID])
     );
+END
+ELSE IF EXISTS (
+    SELECT 1
+    FROM sys.columns
+    WHERE [object_id] = OBJECT_ID(N'[dbo].[ip]')
+      AND [name] = N'EQUIPMENTNO'
+)
+BEGIN
+    BEGIN TRANSACTION;
+
+    IF OBJECT_ID(N'[dbo].[ip_migrating]', N'U') IS NOT NULL
+    BEGIN
+        DROP TABLE [dbo].[ip_migrating];
+    END;
+
+    CREATE TABLE [dbo].[ip_migrating] (
+        [LINEID]      NVARCHAR(100) NOT NULL,
+        [EQUIPMENTID] NVARCHAR(100) NOT NULL,
+        [ip]          NVARCHAR(100) NULL,
+        CONSTRAINT [PK_ip_migrating] PRIMARY KEY ([LINEID], [EQUIPMENTID])
+    );
+
+    INSERT INTO [dbo].[ip_migrating] ([LINEID], [EQUIPMENTID], [ip])
+    SELECT
+        CAST([LINEID] AS NVARCHAR(100)) AS [LINEID],
+        CAST([EQUIPMENTID] AS NVARCHAR(100)) AS [EQUIPMENTID],
+        MAX(NULLIF(LTRIM(RTRIM([ip])), N'')) AS [ip]
+    FROM [dbo].[ip]
+    GROUP BY [LINEID], [EQUIPMENTID];
+
+    DROP TABLE [dbo].[ip];
+    EXEC sp_rename N'[dbo].[ip_migrating]', N'ip';
+    EXEC sp_rename N'[PK_ip_migrating]', N'PK_ip', N'OBJECT';
+
+    COMMIT TRANSACTION;
 END;";
 
             using var conn = new SqlConnection(_targetConnectionString);
@@ -51,10 +77,10 @@ END;";
 SELECT
     [LINEID] AS LineId,
     [EQUIPMENTID] AS EquipmentId,
-    [EQUIPMENTNO] AS EquipmentNo,
     [ip] AS Ip
 FROM [dbo].[ip]
-ORDER BY [LINEID], [EQUIPMENTNO], [EQUIPMENTID];";
+WHERE [LINEID] LIKE N'SKL%'
+ORDER BY [LINEID], [EQUIPMENTID];";
 
             using var conn = new SqlConnection(_targetConnectionString);
             var rows = await conn.QueryAsync<IpRowViewModel>(sql);
@@ -65,27 +91,28 @@ ORDER BY [LINEID], [EQUIPMENTNO], [EQUIPMENTID];";
         {
             if (string.IsNullOrWhiteSpace(lineId))
             {
-                throw new InvalidOperationException("LineID 不可為空白。");
+                throw new InvalidOperationException("LINEID 不可為空。");
             }
 
             await EnsureTableExistsAsync();
 
             const string sourceSql = @"
 SELECT DISTINCT
-    CAST([LINEID] AS NVARCHAR(100)) AS LineId,
-    CAST([EQUIPMENTID] AS NVARCHAR(100)) AS EquipmentId,
-    CAST([EQUIPMENTNO] AS NVARCHAR(100)) AS EquipmentNo,
+    CAST([MESMachineNo_String] AS NVARCHAR(100)) AS LineId,
+    CAST([MESSubEQNo_String] AS NVARCHAR(100)) AS EquipmentId,
     CAST(NULL AS NVARCHAR(100)) AS Ip
-FROM [dbo].[SBRM_EQUIPMENT]
-WHERE [LINEID] = @LineId
-  AND [EQUIPMENTID] IS NOT NULL
-  AND [EQUIPMENTNO] IS NOT NULL
-ORDER BY [EQUIPMENTNO], [EQUIPMENTID];";
+FROM [dbo].[MesMachinesSync]
+WHERE [MESMachineNo_String] = @LineId
+  AND [MESMachineNo_String] LIKE N'SKL%'
+  AND NULLIF(LTRIM(RTRIM([MESMachineNo_String])), N'') IS NOT NULL
+  AND NULLIF(LTRIM(RTRIM([MESSubEQNo_String])), N'') IS NOT NULL
+ORDER BY [MESSubEQNo_String];";
 
-            using var sourceConn = new SqlConnection(_sourceConnectionString);
-            var sourceRows = (await sourceConn.QueryAsync<IpRowViewModel>(sourceSql, new
+            using var conn = new SqlConnection(_targetConnectionString);
+            var normalizedLineId = lineId.Trim();
+            var sourceRows = (await conn.QueryAsync<IpRowViewModel>(sourceSql, new
             {
-                LineId = lineId.Trim()
+                LineId = normalizedLineId
             })).ToList();
 
             if (sourceRows.Count == 0)
@@ -94,37 +121,32 @@ ORDER BY [EQUIPMENTNO], [EQUIPMENTID];";
                 {
                     SourceDatabase = SourceDatabaseName,
                     SourceTable = SourceTableName,
-                    LineId = lineId.Trim(),
+                    LineId = normalizedLineId,
                     ImportedCount = 0
                 };
             }
 
-            const string mergeSql = @"
-MERGE [dbo].[ip] AS target
-USING (
-    SELECT
-        @LineId AS [LINEID],
-        @EquipmentId AS [EQUIPMENTID],
-        @EquipmentNo AS [EQUIPMENTNO]
-) AS source
-ON target.[LINEID] = source.[LINEID]
-AND target.[EQUIPMENTID] = source.[EQUIPMENTID]
-AND target.[EQUIPMENTNO] = source.[EQUIPMENTNO]
-WHEN NOT MATCHED THEN
-    INSERT ([LINEID], [EQUIPMENTID], [EQUIPMENTNO], [ip])
-    VALUES (source.[LINEID], source.[EQUIPMENTID], source.[EQUIPMENTNO], NULL);";
+            await conn.OpenAsync();
+            using var transaction = conn.BeginTransaction();
 
-            using var targetConn = new SqlConnection(_targetConnectionString);
-            await targetConn.OpenAsync();
-            using var transaction = targetConn.BeginTransaction();
+            const string importSql = @"
+IF NOT EXISTS (
+    SELECT 1
+    FROM [dbo].[ip]
+    WHERE [LINEID] = @LineId
+      AND [EQUIPMENTID] = @EquipmentId
+)
+BEGIN
+    INSERT INTO [dbo].[ip] ([LINEID], [EQUIPMENTID], [ip])
+    VALUES (@LineId, @EquipmentId, NULL);
+END;";
 
             foreach (var row in sourceRows)
             {
-                await targetConn.ExecuteAsync(mergeSql, new
+                await conn.ExecuteAsync(importSql, new
                 {
                     row.LineId,
-                    row.EquipmentId,
-                    row.EquipmentNo
+                    row.EquipmentId
                 }, transaction);
             }
 
@@ -134,7 +156,7 @@ WHEN NOT MATCHED THEN
             {
                 SourceDatabase = SourceDatabaseName,
                 SourceTable = SourceTableName,
-                LineId = lineId.Trim(),
+                LineId = normalizedLineId,
                 ImportedCount = sourceRows.Count,
                 ImportedKeys = sourceRows.Select(row => row.GetRowKey()).ToList()
             };
@@ -148,21 +170,19 @@ WHEN NOT MATCHED THEN
 UPDATE [dbo].[ip]
 SET [ip] = @Ip
 WHERE [LINEID] = @LineId
-  AND [EQUIPMENTID] = @EquipmentId
-  AND [EQUIPMENTNO] = @EquipmentNo;";
+  AND [EQUIPMENTID] = @EquipmentId;";
 
             using var conn = new SqlConnection(_targetConnectionString);
             var affectedRows = await conn.ExecuteAsync(sql, new
             {
                 request.LineId,
                 request.EquipmentId,
-                request.EquipmentNo,
                 Ip = string.IsNullOrWhiteSpace(request.Ip) ? null : request.Ip.Trim()
             });
 
             if (affectedRows == 0)
             {
-                throw new InvalidOperationException("找不到要更新的 dbo.ip 資料列。");
+                throw new InvalidOperationException("在 dbo.ip 找不到要更新的資料。");
             }
         }
     }

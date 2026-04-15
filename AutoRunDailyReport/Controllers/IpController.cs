@@ -32,14 +32,13 @@ namespace AutoRunDailyReport.Controllers
                 model.Items = (await _ipRepository.GetAllAsync())
                     .OrderBy(item => model.HighlightedKeys.Contains(item.GetRowKey()) ? 0 : 1)
                     .ThenBy(item => item.LineId)
-                    .ThenBy(item => item.EquipmentNo)
                     .ThenBy(item => item.EquipmentId)
                     .ToList();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to load IP page.");
-                model.Warnings.Add($"IP 頁面載入失敗。{ex.GetBaseException().GetType().Name}: {ex.GetBaseException().Message}");
+                model.Warnings.Add($"IP 設置資料載入失敗。{ex.GetBaseException().GetType().Name}: {ex.GetBaseException().Message}");
             }
 
             return View(model);
@@ -51,7 +50,7 @@ namespace AutoRunDailyReport.Controllers
         {
             if (string.IsNullOrWhiteSpace(lineId))
             {
-                TempData["Error"] = "請先輸入 LineID。";
+                TempData["Error"] = "請先輸入 LINEID。";
                 return RedirectToAction(nameof(Index));
             }
 
@@ -62,14 +61,13 @@ namespace AutoRunDailyReport.Controllers
 
                 TempData[CurrentLineIdTempDataKey] = normalizedLineId;
                 TempData[HighlightedKeysTempDataKey] = JsonSerializer.Serialize(result.ImportedKeys);
-
                 TempData["Success"] = result.ImportedCount == 0
-                    ? $"在 {result.SourceDatabase}.dbo.{result.SourceTable} 找不到 LineID = {result.LineId} 的資料。"
-                    : $"已從 {result.SourceDatabase}.dbo.{result.SourceTable} 匯入 LineID = {result.LineId} 的 {result.ImportedCount} 筆資料到 dbo.ip，並已移到表格上方高亮顯示。";
+                    ? $"在 {result.SourceDatabase}.dbo.{result.SourceTable} 找不到符合 LINEID = {result.LineId} 且 MESMachineNo_String 為 SKL% 的資料。"
+                    : $"已從 {result.SourceDatabase}.dbo.{result.SourceTable} 匯入 {result.ImportedCount} 筆資料到 dbo.ip，並將這次匯入的設備排到表格最上方。";
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to import equipment by LineID {LineId}.", lineId);
+                _logger.LogError(ex, "Failed to import equipment by LINEID {LineId}.", lineId);
                 TempData["Error"] = $"匯入 dbo.ip 失敗。{ex.GetBaseException().GetType().Name}: {ex.GetBaseException().Message}";
             }
 
@@ -81,21 +79,20 @@ namespace AutoRunDailyReport.Controllers
         public async Task<IActionResult> SaveIp(SaveIpRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.LineId) ||
-                string.IsNullOrWhiteSpace(request.EquipmentId) ||
-                string.IsNullOrWhiteSpace(request.EquipmentNo))
+                string.IsNullOrWhiteSpace(request.EquipmentId))
             {
-                TempData["Error"] = "LINEID、EQUIPMENTID、EQUIPMENTNO 不可為空白。";
+                TempData["Error"] = "LINEID 與 EQUIPMENTID 不可為空。";
                 return RedirectToAction(nameof(Index));
             }
 
             try
             {
                 await _ipRepository.UpdateIpAsync(request);
-                TempData["Success"] = $"已更新設備 {request.EquipmentNo} 的 IP。";
+                TempData["Success"] = $"已儲存 {request.LineId} / {request.EquipmentId} 的 IP。";
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to save IP for equipment {EquipmentNo}.", request.EquipmentNo);
+                _logger.LogError(ex, "Failed to save IP for {LineId}/{EquipmentId}.", request.LineId, request.EquipmentId);
                 TempData["Error"] = $"儲存 IP 失敗。{ex.GetBaseException().GetType().Name}: {ex.GetBaseException().Message}";
             }
 

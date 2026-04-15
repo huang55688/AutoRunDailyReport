@@ -1,4 +1,4 @@
-using Dapper;
+ï»¿using Dapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 
@@ -13,13 +13,13 @@ namespace AutoRunDailyReport.Controllers
         public ChartController(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("TargetConnection")
-                ?? throw new InvalidOperationException("TargetConnection ¥¼³]©w¡C");
+                ?? throw new InvalidOperationException("TargetConnection æœªè¨­å®šã€‚");
         }
 
         /// <summary>
-        /// ¨Ì¤ë¥÷·JÁ`¡G¨C¤ë InLineTestDate_Time ²Ö­p¼Æ¡BInLineTestACDDate_Time_Check ²Ö­p¼Æ
-        /// ¨C¥x¾÷¾¹¥u¨ú³Ì·s¤@µ§¡A­Y³Ì·s¬ö¿ı¤£¦b°Ï¶¡¤º«h¤£­p¤J
-        /// ¤ä´©®É¶¡°Ï¶¡ + KFPhase + Section ¿z¿ï
+        /// ä¾æœˆä»½å½™ç¸½ï¼šæ¯æœˆ InLineTestDate_Time ç´¯è¨ˆæ•¸ã€InLineTestACDDate_Time_Check ç´¯è¨ˆæ•¸
+        /// æ¯å°æ©Ÿå™¨åªå–æœ€æ–°ä¸€ç­†ï¼Œè‹¥æœ€æ–°ç´€éŒ„ä¸åœ¨å€é–“å…§å‰‡ä¸è¨ˆå…¥
+        /// æ”¯æ´æ™‚é–“å€é–“ + KFPhase + Section ç¯©é¸
         /// </summary>
         [HttpGet("inline-test")]
         public async Task<IActionResult> GetInLineTestChart(
@@ -34,9 +34,9 @@ namespace AutoRunDailyReport.Controllers
             const string sql = @"
 ;WITH ExcludeNames AS (
     SELECT value AS Name FROM (VALUES
-        (N'¤ÀªR»ö'),
-        (N'¿ûªO'),
-        (N'ÀË´ú¾÷')
+        (N'åˆ†æå„€'),
+        (N'é‹¼æ¿'),
+        (N'æª¢æ¸¬æ©Ÿ')
     ) AS T(value)
 ),
 LatestPerMachine AS (
@@ -52,7 +52,7 @@ LatestPerMachine AS (
         ) AS rn
     FROM dbo.MesMachinesSync
     WHERE InLineTestDate_Time IS NOT NULL
-      AND (Vendor IS NULL OR Vendor != N'©ö®æ')
+      AND (Vendor IS NULL OR Vendor != N'æ˜“æ ¼')
       AND NOT EXISTS (
           SELECT 1 FROM ExcludeNames
           WHERE MESSubEQName_String LIKE N'%' + Name + N'%'
@@ -80,27 +80,28 @@ ORDER BY Month;";
                 Section = string.IsNullOrWhiteSpace(section) ? null : section
             })).ToList();
 
-            // ²Ö­p­pºâ
             var labels = new List<string>();
-            var inlineData = new List<int>();
-            var checkedData = new List<int>();
-            var diffData = new List<int>();
-            int cumInline = 0, cumChecked = 0;
+            var totalData = new List<int>();
+            var okData = new List<int>();
+            var ngData = new List<int>();
+            var cumInline = 0;
+            var cumChecked = 0;
 
-            foreach (var r in rows)
+            foreach (var row in rows)
             {
-                cumInline += (int)r.InLineTestCount;
-                cumChecked += (int)r.CheckedCount;
-                labels.Add((string)r.Month);
-                inlineData.Add(cumInline);
-                checkedData.Add(cumChecked);
-                diffData.Add(cumInline - cumChecked);
+                cumInline += (int)row.InLineTestCount;
+                cumChecked += (int)row.CheckedCount;
+
+                labels.Add((string)row.Month);
+                totalData.Add(cumInline);
+                okData.Add(cumChecked);
+                ngData.Add(cumInline - cumChecked);
             }
 
-            return Ok(new { labels, inlineData, checkedData, diffData });
+            return Ok(new { labels, totalData, okData, ngData });
         }
 
-        /// <summary>¨ú±o¿z¿ï¾¹ªº¤U©Ô¿ï¶µ</summary>
+        /// <summary>å–å¾—ç¯©é¸å™¨çš„ä¸‹æ‹‰é¸é …</summary>
         [HttpGet("filters")]
         public async Task<IActionResult> GetFilters()
         {
