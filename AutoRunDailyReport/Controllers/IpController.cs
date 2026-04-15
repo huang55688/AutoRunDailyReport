@@ -83,7 +83,7 @@ namespace AutoRunDailyReport.Controllers
 
                 TempData[HighlightedKeysTempDataKey] = JsonSerializer.Serialize(result.ImportedKeys);
                 TempData["Success"] = result.ImportedCount == 0
-                    ? $"在 {result.SourceDatabase}.dbo.{result.SourceTable} 找不到 LINEID = {result.LineId} 且開頭為 SKL 的資料。"
+                    ? $"在 {result.SourceDatabase}.dbo.{result.SourceTable} 找不到 LINEID = {result.LineId} 且 MESSubEQNo_String 開頭為 SKL 的資料。"
                     : $"已從 {result.SourceDatabase}.dbo.{result.SourceTable} 匯入 {result.ImportedCount} 筆資料到 dbo.ip，並將這次匯入的設備排到表格最上方。";
 
                 return RedirectToAction(nameof(Index), new
