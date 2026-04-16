@@ -2,7 +2,52 @@
     ViewData["Title"] = "In Line Test byLine";
 }
 
-<h4 class="mb-3">&lt;In Line Test byLine&gt;</h4>
+<style>
+    .inline-test-page .chart-mode-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 18px;
+    }
+
+    .inline-test-page .chart-mode-buttons {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .inline-test-page .chart-mode-button {
+        min-width: 116px;
+        font-weight: 700;
+    }
+
+    .inline-test-page .chart-mode-button.active {
+        background-color: #1a237e;
+        border-color: #1a237e;
+        color: #fff;
+        box-shadow: 0 6px 14px rgba(26, 35, 126, 0.18);
+    }
+
+    .inline-test-page .chart-mode-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #24324a;
+    }
+
+    .inline-test-page .chart-mode-hint {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    .inline-test-page .chart-note {
+        line-height: 1.7;
+    }
+</style>
+
+<div class="container-fluid inline-test-page py-3">
+    <h4 class="mb-3">&lt;In Line Test byLine&gt;</h4>
 
 <!-- 篩選器 -->
 <div class="card mb-3">
@@ -23,8 +68,8 @@
                 </select>
             </div>
             <div class="col-md-2">
-                <label class="form-label small text-muted">樓別 (Layout)</label>
-                <select id="LayoutSelect" class="form-select form-select-sm">
+                <label class="form-label small text-muted">樓別 (Section)</label>
+                <select id="sectionSelect" class="form-select form-select-sm">
                     <option value="">(全部)</option>
                 </select>
             </div>
@@ -35,20 +80,18 @@
     </div>
 </div>
 
-<!-- 圖表 -->
-<div class="card">
-    <div class="card-body">
-        <div style="position:relative; height:500px;">
-            <canvas id="inlineChart"></canvas>
+    <div class="card">
+        <div class="card-body">
+            <div style="position:relative; height:520px;">
+                <canvas id="inlineChart"></canvas>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- 圖例說明 -->
-<div class="mt-2 small text-muted">
-    <span class="me-3">🔵 藍線 = InLineTestDate_Time 累計（執行 Line(Max) 計數）</span>
-    <span class="me-3">🟢 綠線 = InLineTestACDDate_Time_Check 累計（已確認計數）</span>
-    <span>🔴 紅色區域 = 差異（藍 − 綠，NG 數量）</span>
+    <div class="mt-3 small text-muted chart-note">
+        <div>藍線代表累計總數，會貼著堆疊長條圖的頂部並用線連起來。</div>
+        <div>綠色數字代表 OK 累計、紅色數字代表 NG 累計，數字會顯示在對應顏色的長條圖內。</div>
+    </div>
 </div>
 
 <!-- 未完成線別清單 -->
@@ -68,23 +111,83 @@
     <script>
         Chart.register(ChartDataLabels);
 
-        let chart = null;
+    let chart = null;
+    let currentMode = 'stacked';
+    let latestChartData = null;
 
-                // 預設日期：本月1日 ~ 本月最後一天
-            const today = new Date();
-            const defFrom = new Date(today.getFullYear(), today.getMonth() , 1);
-            const defTo = new Date(today.getFullYear(), today.getMonth() + 3, 0);
+    const modeMeta = {
+        stacked: {
+            title: 'OK + NG 累計堆疊圖',
+            hint: '綠色與紅色數字顯示在長條圖內，藍線顯示累計總數。'
+        },
+        ok: {
+            title: '只看 OK 累計長條圖',
+            hint: '只顯示 OK（已確認）累計數據。'
+        },
+        ng: {
+            title: '只看 NG 累計長條圖',
+            hint: '只顯示 NG（差異）累計數據。'
+        }
+    };
 
-            function toLocalDateStr(d) {
-                const y = d.getFullYear();
-                const m = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                return `${y}-${m}-${day}`;
+    const today = new Date();
+    const defFrom = new Date(today.getFullYear(), today.getMonth(), 1);
+    const defTo = new Date(today.getFullYear(), today.getMonth() + 3, 0);
+
+    function toLocalDateStr(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    function getBarLabelOptions(color) {
+        return {
+            display(context) {
+                const value = context.dataset.data[context.dataIndex] ?? 0;
+                return value > 0;
+            },
+            color,
+            anchor: 'center',
+            align: 'center',
+            clamp: true,
+            formatter(value) {
+                return value;
+            },
+            font: {
+                weight: 'bold',
+                size: 12
             }
+        };
+    }
 
-            document.getElementById('dateFrom').value = toLocalDateStr(defFrom);
-            document.getElementById('dateTo').value = toLocalDateStr(defTo);
-
+    function getLineLabelOptions() {
+        return {
+            display(context) {
+                const value = context.dataset.data[context.dataIndex] ?? 0;
+                return value > 0;
+            },
+            color: '#1a237e',
+            backgroundColor: 'rgba(255, 255, 255, 0.92)',
+            borderRadius: 999,
+            padding: {
+                top: 4,
+                right: 8,
+                bottom: 4,
+                left: 8
+            },
+            anchor: 'end',
+            align: 'top',
+            offset: 6,
+            formatter(value) {
+                return value;
+            },
+            font: {
+                weight: 'bold',
+                size: 12
+            }
+        };
+    }
         // 載入篩選器選項
         async function loadFilters() {
             try {
@@ -108,12 +211,37 @@
             } catch (_) { }
         }
 
+    function getDatasets(data, mode) {
+        if (mode === 'ok') {
+            return [{
+                type: 'bar',
+                label: 'OK（已確認）',
+                data: data.okData,
+                backgroundColor: 'rgba(75, 192, 120, 0.65)',
+                borderColor: 'rgba(60, 160, 100, 0.95)',
+                borderWidth: 1,
+                borderRadius: 6,
+                datalabels: getBarLabelOptions('#1f6b44')
+            }];
+        }
         function buildQueryParams() {
             const from = document.getElementById('dateFrom').value;
             const to = document.getElementById('dateTo').value;
             const kfPhase = document.getElementById('kfPhaseSelect').value;
             const layout = document.getElementById('LayoutSelect').value;
 
+        if (mode === 'ng') {
+            return [{
+                type: 'bar',
+                label: 'NG（差異）',
+                data: data.ngData,
+                backgroundColor: 'rgba(255, 99, 132, 0.45)',
+                borderColor: 'rgba(214, 74, 113, 0.95)',
+                borderWidth: 1,
+                borderRadius: 6,
+                datalabels: getBarLabelOptions('#b33d57')
+            }];
+        }
             const params = new URLSearchParams();
             if (from) params.set('from', from);
             if (to) params.set('to', to);
@@ -125,6 +253,174 @@
         async function loadChart() {
             const params = buildQueryParams();
 
+        return [
+            {
+                type: 'bar',
+                label: 'OK（已確認）',
+                data: data.okData,
+                backgroundColor: 'rgba(75, 192, 120, 0.65)',
+                borderColor: 'rgba(60, 160, 100, 0.95)',
+                borderWidth: 1,
+                borderRadius: 6,
+                stack: 'summary',
+                datalabels: getBarLabelOptions('#1f6b44')
+            },
+            {
+                type: 'bar',
+                label: 'NG（差異）',
+                data: data.ngData,
+                backgroundColor: 'rgba(255, 99, 132, 0.45)',
+                borderColor: 'rgba(214, 74, 113, 0.95)',
+                borderWidth: 1,
+                borderRadius: 6,
+                stack: 'summary',
+                datalabels: getBarLabelOptions('#b33d57')
+            },
+            {
+                type: 'line',
+                label: '累計',
+                data: data.totalData,
+                borderColor: '#1a237e',
+                backgroundColor: '#1a237e',
+                borderWidth: 3,
+                pointRadius: 5,
+                pointHoverRadius: 6,
+                pointBackgroundColor: '#1a237e',
+                pointBorderColor: '#1a237e',
+                tension: 0.25,
+                fill: false,
+                datalabels: getLineLabelOptions()
+            }
+        ];
+    }
+
+    function getChartOptions(mode) {
+        const stacked = mode === 'stacked';
+        const yAxisTitle = mode === 'ok'
+            ? 'OK 累計'
+            : mode === 'ng'
+                ? 'NG 累計'
+                : 'OK / NG 累計';
+
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 20
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        title(items) {
+                            return items[0].label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    stacked,
+                    grid: {
+                        display: false
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    stacked,
+                    title: {
+                        display: true,
+                        text: yAxisTitle
+                    }
+                }
+            }
+        };
+    }
+
+    function updateModeUi() {
+        document.querySelectorAll('.chart-mode-button').forEach(button => {
+            button.classList.toggle('active', button.dataset.mode === currentMode);
+        });
+
+        const meta = modeMeta[currentMode];
+        document.getElementById('chartModeTitle').textContent = meta.title;
+        document.getElementById('chartModeHint').textContent = meta.hint;
+    }
+
+    function renderChart() {
+        if (!latestChartData) {
+            return;
+        }
+
+        const ctx = document.getElementById('inlineChart').getContext('2d');
+        if (chart) {
+            chart.destroy();
+        }
+
+        chart = new Chart(ctx, {
+            data: {
+                labels: latestChartData.labels,
+                datasets: getDatasets(latestChartData, currentMode)
+            },
+            options: getChartOptions(currentMode)
+        });
+    }
+
+    async function loadFilters() {
+        try {
+            const res = await fetch('/api/chart/filters');
+            if (!res.ok) {
+                return;
+            }
+
+            const data = await res.json();
+            const phaseSel = document.getElementById('kfPhaseSelect');
+            const secSel = document.getElementById('sectionSelect');
+
+            data.phases.forEach(phase => {
+                const option = document.createElement('option');
+                option.value = phase;
+                option.textContent = phase;
+                phaseSel.appendChild(option);
+            });
+
+            data.sections.forEach(section => {
+                const option = document.createElement('option');
+                option.value = section;
+                option.textContent = section;
+                secSel.appendChild(option);
+            });
+        } catch (_) {
+        }
+    }
+
+    async function loadChart() {
+        const from = document.getElementById('dateFrom').value;
+        const to = document.getElementById('dateTo').value;
+        const kfPhase = document.getElementById('kfPhaseSelect').value;
+        const section = document.getElementById('sectionSelect').value;
+
+        const params = new URLSearchParams();
+        if (from) params.set('from', from);
+        if (to) params.set('to', to);
+        if (kfPhase) params.set('kfPhase', kfPhase);
+        if (section) params.set('section', section);
+
+        const res = await fetch(`/api/chart/inline-test?${params}`);
+        if (!res.ok) {
+            return;
+        }
+
+        latestChartData = await res.json();
+        renderChart();
+    }
             const res = await fetch(`/api/chart/inline-test?${params}`);
             if (!res.ok) return;
             const data = await res.json();
@@ -304,8 +600,19 @@
         }
 
         document.getElementById('btnQuery').addEventListener('click', loadAll);
+    document.getElementById('dateFrom').value = toLocalDateStr(defFrom);
+    document.getElementById('dateTo').value = toLocalDateStr(defTo);
+    document.getElementById('btnQuery').addEventListener('click', loadChart);
 
-        // 初始載入
-        loadFilters().then(loadAll);
-    </script>
+    document.querySelectorAll('.chart-mode-button').forEach(button => {
+        button.addEventListener('click', () => {
+            currentMode = button.dataset.mode;
+            updateModeUi();
+            renderChart();
+        });
+    });
+
+    updateModeUi();
+    loadFilters().then(loadChart);
+</script>
 }

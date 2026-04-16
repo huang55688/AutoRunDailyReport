@@ -1,4 +1,4 @@
-@model AutoRunDailyReport.Models.IpPageViewModel
+﻿@model AutoRunDailyReport.Models.IpPageViewModel
 @{
     ViewData["Title"] = "IP設置";
 }
@@ -10,21 +10,21 @@
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
             <div class="ip-title-wrap">
                 <span class="ip-title">IP設置</span>
-                <div class="ip-subtitle">輸入 LineID 後，系統會從 [DIAEAP_UNIMICRON].[dbo].[SBRM_EQUIPMENT] 只讀取對應設備資料，並寫入 [SM_AIOT_KF].[dbo].[ip]。</div>
+               
             </div>
         </div>
 
-        <form asp-action="ImportByLineId" method="post" class="ip-import-form mt-3">
+        <form asp-action="SearchCandidates" method="post" class="ip-import-form mt-3">
             @Html.AntiForgeryToken()
             <div class="ip-import-row">
-                <label for="lineId" class="ip-form-label">LineID</label>
+                <label for="lineId" class="ip-form-label">LINEID</label>
                 <input id="lineId"
                        name="lineId"
                        type="text"
                        value="@Model.CurrentLineId"
                        class="form-control ip-line-input"
-                       placeholder="請輸入 LineID" />
-                <button type="submit" class="btn ip-import-button">送出</button>
+                       placeholder="請輸入完整或部分 MESMachineNo_String" />
+                <button type="submit" class="btn ip-import-button">搜尋</button>
             </div>
         </form>
     </div>
@@ -47,9 +47,54 @@
         }
     }
 
+    @if (!string.IsNullOrWhiteSpace(Model.CurrentLineId))
+    {
+        <div class="ip-candidate-shell mb-4">
+            <div class="ip-candidate-header">
+                <div>
+                    <div class="ip-section-title">候選 LINEID 清單</div>
+                    <div class="ip-section-subtitle">搜尋關鍵字：<code>@Model.CurrentLineId</code></div>
+                </div>
+            </div>
+
+            @if (Model.SearchCandidates.Any())
+            {
+                <div class="ip-candidate-list">
+                    @foreach (var candidate in Model.SearchCandidates)
+                    {
+                        <div class="ip-candidate-row">
+                            <div class="ip-candidate-info">
+                                <div class="ip-candidate-code">
+                                    <code>@candidate.LineId</code>
+                                </div>
+                                <div class="ip-candidate-meta">
+                                    對應設備數：@candidate.EquipmentCount
+                                </div>
+                            </div>
+
+                            <form asp-action="ImportByLineId" method="post" class="ip-candidate-form">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="lineId" value="@candidate.LineId" />
+                                <button type="submit" class="btn ip-import-button">匯入</button>
+                            </form>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="ip-empty-state ip-empty-inline">
+                    找不到符合「@Model.CurrentLineId」且有對應 SKL 開頭 MESSubEQNo_String 的候選 LINEID。
+                </div>
+            }
+        </div>
+    }
+
     @if (Model.HighlightedKeys.Any())
     {
-        <div class="ip-alert ip-alert-highlight mb-3">表格中已高亮顯示這次剛匯入的設備。</div>
+        <div class="ip-alert ip-alert-highlight mb-3">
+            這次剛匯入的設備已經高亮顯示，並排在表格最上方。
+        </div>
     }
 
     <div class="ip-table-shell">
@@ -59,9 +104,7 @@
                     <tr>
                         <th>LINEID</th>
                         <th>EQUIPMENTID</th>
-                        <th>EQUIPMENTNO</th>
                         <th>IP</th>
-                        <th class="text-end">狀態</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -76,25 +119,19 @@
                             <tr class="@rowCssClass">
                                 <td><code>@item.LineId</code></td>
                                 <td><code>@item.EquipmentId</code></td>
-                                <td><code>@item.EquipmentNo</code></td>
                                 <td>
                                     <form asp-action="SaveIp" method="post" class="ip-inline-form">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="LineId" value="@item.LineId" />
                                         <input type="hidden" name="EquipmentId" value="@item.EquipmentId" />
-                                        <input type="hidden" name="EquipmentNo" value="@item.EquipmentNo" />
+                                        <input type="hidden" name="SearchLineId" value="@Model.CurrentLineId" />
                                         <input type="text"
                                                name="Ip"
                                                value="@item.Ip"
                                                class="form-control ip-input"
-                                               placeholder="輸入 IP" />
+                                               placeholder="請輸入 IP" />
                                         <button type="submit" class="btn ip-save-button">儲存</button>
                                     </form>
-                                </td>
-                                <td class="text-end">
-                                    <span class="ip-status-tag">
-                                        @(string.IsNullOrWhiteSpace(item.Ip) ? "尚未設定" : "已設定")
-                                    </span>
                                 </td>
                             </tr>
                         }
@@ -102,8 +139,8 @@
                     else
                     {
                         <tr>
-                            <td colspan="5" class="ip-empty-state">
-                                目前 dbo.ip 還沒有資料。你可以先輸入 LineID 後按送出。
+                            <td colspan="3" class="ip-empty-state">
+                                目前 dbo.ip 還沒有資料，請先搜尋候選 LINEID，再按匯入。
                             </td>
                         </tr>
                     }
