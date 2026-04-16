@@ -7,7 +7,8 @@ body {
 }
 
 .ip-page-header,
-.ip-table-shell {
+.ip-table-shell,
+.ip-candidate-shell {
     background: linear-gradient(180deg, #fffaf0 0%, #ffffff 100%);
     border: 2px solid #dcc9a3;
     box-shadow: 0 12px 28px rgba(91, 69, 34, 0.06);
@@ -124,6 +125,68 @@ body {
     color: #17486f;
 }
 
+.ip-candidate-shell {
+    padding: 20px 24px;
+}
+
+.ip-candidate-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.ip-section-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #4b361d;
+}
+
+.ip-section-subtitle {
+    margin-top: 6px;
+    color: #7b684c;
+    font-size: 14px;
+}
+
+.ip-candidate-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ip-candidate-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 18px;
+    border: 1px solid #ebdfc5;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #fffdfa 0%, #fff7ea 100%);
+}
+
+.ip-candidate-info {
+    min-width: 0;
+}
+
+.ip-candidate-code code {
+    display: inline-block;
+    padding: 6px 10px;
+    font-size: 15px;
+}
+
+.ip-candidate-meta {
+    margin-top: 8px;
+    color: #6f624e;
+    font-size: 14px;
+}
+
+.ip-candidate-form {
+    flex-shrink: 0;
+}
+
 .ip-table {
     --bs-table-bg: transparent;
     margin: 0;
@@ -175,6 +238,7 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
+    min-width: 320px;
 }
 
 .ip-input {
@@ -183,25 +247,18 @@ body {
     border-color: #d5c2a0;
 }
 
-.ip-status-tag {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 84px;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: #fff4db;
-    color: #8a5711;
-    font-size: 13px;
-    font-weight: 700;
-}
-
 .ip-empty-state {
     padding: 48px 20px !important;
     text-align: center;
     color: #7c7264 !important;
     background: #fffdf9 !important;
     font-size: 16px;
+}
+
+.ip-empty-inline {
+    border: 1px dashed #d8c49a;
+    border-radius: 14px;
+    background: #fffdf7 !important;
 }
 
 @media (max-width: 992px) {
@@ -231,6 +288,19 @@ body {
 
     .ip-input {
         min-width: 0;
+        width: 100%;
+    }
+
+    .ip-candidate-shell {
+        padding: 18px;
+    }
+
+    .ip-candidate-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .ip-candidate-form .ip-import-button {
         width: 100%;
     }
 }
