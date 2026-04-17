@@ -16,11 +16,6 @@ namespace AutoRunDailyReport.Controllers
                 ?? throw new InvalidOperationException("TargetConnection 未設定。");
         }
 
-        /// <summary>
-        /// 依月份彙總：每月 InLineTestDate_Time 累計數、InLineTestACDDate_Time_Check 累計數
-        /// 每台機器只取最新一筆，若最新紀錄不在區間內則不計入
-        /// 支援時間區間 + KFPhase + Layout 篩選
-        /// </summary>
         [HttpGet("inline-test")]
         public async Task<IActionResult> GetInLineTestChart(
             [FromQuery] DateTime? from,
@@ -101,10 +96,6 @@ ORDER BY Month;";
             return Ok(new { labels, totalData, okData, ngData });
         }
 
-        /// <summary>
-        /// 取得未完成的線別清單（InLineTestDate_Time 有值但 InLineTestACDDate_Time_Check 為 NULL）
-        /// 回傳按月份分組的結構
-        /// </summary>
         [HttpGet("inline-test/incomplete")]
         public async Task<IActionResult> GetIncompleteLines(
             [FromQuery] DateTime? from,
@@ -188,8 +179,6 @@ ORDER BY Month, InLineTestDate_Time DESC;";
             return Ok(new { totalCount, groups = grouped });
         }
 
-
-        /// <summary>取得篩選器的下拉選項</summary>
         [HttpGet("filters")]
         public async Task<IActionResult> GetFilters()
         {
@@ -200,9 +189,9 @@ SELECT DISTINCT Layout FROM dbo.MesMachinesSync WHERE Layout IS NOT NULL ORDER B
             using var conn = new SqlConnection(_connectionString);
             using var multi = await conn.QueryMultipleAsync(sql);
             var phases = (await multi.ReadAsync<string>()).ToList();
-            var Layouts = (await multi.ReadAsync<string>()).ToList();
+            var layouts = (await multi.ReadAsync<string>()).ToList();
 
-            return Ok(new { phases, Layouts });
+            return Ok(new { phases, layouts });
         }
     }
 }
