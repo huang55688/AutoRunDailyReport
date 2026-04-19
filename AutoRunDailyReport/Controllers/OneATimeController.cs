@@ -73,22 +73,27 @@ namespace AutoRunDailyReport.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> HideReminder(string line, DateTime oneADeadline)
+        public async Task<IActionResult> HideReminder(string? machineName, string? line, DateTime oneADeadline)
         {
-            if (string.IsNullOrWhiteSpace(line))
+            if (string.IsNullOrWhiteSpace(machineName) && string.IsNullOrWhiteSpace(line))
             {
-                TempData["Error"] = "提醒項目的 Line 不可為空白。";
+                TempData["Error"] = "提醒項目的機台名稱與 Line 不可同時為空白。";
                 return RedirectToAction(nameof(Index));
             }
 
             try
             {
-                await _metaRepository.HideReminderAsync(line.Trim(), oneADeadline.Date);
-                TempData["Success"] = $"已將 {line} 的提醒隱藏。";
+                await _metaRepository.HideReminderAsync(
+                    string.IsNullOrWhiteSpace(machineName) ? null : machineName.Trim(),
+                    string.IsNullOrWhiteSpace(line) ? null : line.Trim(),
+                    oneADeadline.Date);
+
+                var reminderLabel = !string.IsNullOrWhiteSpace(line) ? line : machineName;
+                TempData["Success"] = $"已將 {reminderLabel} 的提醒隱藏。";
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to hide reminder for line {Line}.", line);
+                _logger.LogError(ex, "Failed to hide reminder for machine {MachineName} / line {Line}.", machineName, line);
                 TempData["Error"] = "更新提醒狀態失敗，請稍後再試。";
             }
 
