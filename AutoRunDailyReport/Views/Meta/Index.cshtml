@@ -20,19 +20,8 @@
 
     public string GetMachineDetailSummary(AutoRunDailyReport.Models.MesMachinesMetaDto item)
     {
-        var machineNos = item.SyncDetails
-            .Select(detail => detail.MESMachineNoString)
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (machineNos.Count == 0)
-            return "查看同步資訊";
-
-        if (machineNos.Count == 1)
-            return machineNos[0]!;
-
-        return $"{machineNos[0]} 等 {machineNos.Count} 筆";
+        var detailCount = item.SyncDetails.Count;
+        return detailCount <= 0 ? "查看同步資訊" : $"查看 {detailCount} 筆";
     }
 
     public string GetDeadlineBadgeClass(DateTime? deadline)
@@ -118,7 +107,7 @@
                             <th>Test Status</th>
                             <th>Schedule</th>
                             <th>最後更新</th>
-                            <th></th>
+                            <th>操作</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -179,28 +168,28 @@
                                         <td colspan="@detailColumnCount" class="meta-expand-row-cell">
                                             <div class="meta-expand-panel">
                                                 <div class="meta-expand-panel-title">同步資訊</div>
-                                                <div class="meta-expand-panel-list">
-                                                    @foreach (var detail in item.SyncDetails)
-                                                    {
-                                                        <div class="meta-expand-panel-item">
-                                                            <div class="meta-expand-panel-row">
-                                                                <span class="meta-expand-panel-label">MESMachineNo_String</span>
-                                                                <span class="meta-expand-panel-value">@DisplayOrDash(detail.MESMachineNoString)</span>
-                                                            </div>
-                                                            <div class="meta-expand-panel-row">
-                                                                <span class="meta-expand-panel-label">MESSubEQNo_String</span>
-                                                                <span class="meta-expand-panel-value">@DisplayOrDash(detail.MESSubEQNoString)</span>
-                                                            </div>
-                                                            <div class="meta-expand-panel-row">
-                                                                <span class="meta-expand-panel-label">Vendor</span>
-                                                                <span class="meta-expand-panel-value">@DisplayOrDash(detail.Vendor)</span>
-                                                            </div>
-                                                            <div class="meta-expand-panel-row">
-                                                                <span class="meta-expand-panel-label">IP</span>
-                                                                <span class="meta-expand-panel-value">@DisplayOrDash(detail.Ip)</span>
-                                                            </div>
-                                                        </div>
-                                                    }
+                                                <div class="table-responsive meta-expand-table-wrap">
+                                                    <table class="table meta-expand-table mb-0">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>MESMachineNo_String</th>
+                                                                <th>MESSubEQNo_String</th>
+                                                                <th>Vendor</th>
+                                                                <th>IP</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach (var detail in item.SyncDetails)
+                                                            {
+                                                                <tr>
+                                                                    <td>@DisplayOrDash(detail.MESMachineNoString)</td>
+                                                                    <td>@DisplayOrDash(detail.MESSubEQNoString)</td>
+                                                                    <td>@DisplayOrDash(detail.Vendor)</td>
+                                                                    <td>@DisplayOrDash(detail.Ip)</td>
+                                                                </tr>
+                                                            }
+                                                        </tbody>
+                                                    </table>
                                                 </div>
                                             </div>
                                         </td>
