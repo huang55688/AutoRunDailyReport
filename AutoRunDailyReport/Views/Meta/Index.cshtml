@@ -15,8 +15,24 @@
 
     public bool HasMachineDetail(AutoRunDailyReport.Models.MesMachinesMetaDto item)
     {
-        return !string.IsNullOrWhiteSpace(item.MESMachineNoString)
-            || (item.SyncDetails?.Any() ?? false);
+        return item.SyncDetails?.Any() ?? false;
+    }
+
+    public string GetMachineDetailSummary(AutoRunDailyReport.Models.MesMachinesMetaDto item)
+    {
+        var machineNos = item.SyncDetails
+            .Select(detail => detail.MESMachineNoString)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (machineNos.Count == 0)
+            return "查看同步資訊";
+
+        if (machineNos.Count == 1)
+            return machineNos[0]!;
+
+        return $"{machineNos[0]} 等 {machineNos.Count} 筆";
     }
 
     public string GetDeadlineBadgeClass(DateTime? deadline)
@@ -93,7 +109,7 @@
                     <thead>
                         <tr>
                             <th>MESMachineName</th>
-                            <th>MESMachineNo_String</th>
+                            <th>同步資訊</th>
                             <th>Line</th>
                             <th>1A Deadline</th>
                             <th>State</th>
@@ -108,55 +124,33 @@
                     <tbody>
                         @if (items.Any())
                         {
-                            foreach (var item in items)
+                            var detailColumnCount = 11;
+
+                            for (var index = 0; index < items.Count; index++)
                             {
+                                var item = items[index];
+                                var detailId = $"meta-detail-{index}";
+
                                 <tr>
                                     <td class="meta-line-cell">@item.MESMachineName</td>
-                                    <td class="meta-machine-code-cell">
+                                    <td class="meta-sync-summary-cell">
                                         @if (HasMachineDetail(item))
                                         {
-                                            <details class="meta-machine-detail">
-                                                <summary class="meta-machine-detail-toggle">
-                                                    <span class="meta-machine-code-text">@DisplayOrDash(item.MESMachineNoString)</span>
-                                                </summary>
-
-                                                <div class="meta-machine-detail-panel">
-                                                    @if (item.SyncDetails.Any())
-                                                    {
-                                                        <div class="meta-machine-detail-list">
-                                                            @foreach (var detail in item.SyncDetails)
-                                                            {
-                                                                <div class="meta-machine-detail-item">
-                                                                    <div class="meta-machine-detail-row">
-                                                                        <span class="meta-machine-detail-label">MESSubEQNo_String</span>
-                                                                        <span class="meta-machine-detail-value">@DisplayOrDash(detail.MESSubEQNoString)</span>
-                                                                    </div>
-                                                                    <div class="meta-machine-detail-row">
-                                                                        <span class="meta-machine-detail-label">Vendor</span>
-                                                                        <span class="meta-machine-detail-value">@DisplayOrDash(detail.Vendor)</span>
-                                                                    </div>
-                                                                    <div class="meta-machine-detail-row">
-                                                                        <span class="meta-machine-detail-label">IP</span>
-                                                                        <span class="meta-machine-detail-value">@DisplayOrDash(detail.Ip)</span>
-                                                                    </div>
-                                                                </div>
-                                                            }
-                                                        </div>
-                                                    }
-                                                    else
-                                                    {
-                                                        <div class="meta-machine-detail-empty">目前沒有更多同步資料。</div>
-                                                    }
-                                                </div>
-                                            </details>
+                                            <button
+                                                type="button"
+                                                class="btn meta-expand-toggle"
+                                                data-target="@detailId"
+                                                aria-expanded="false">
+                                                <span class="meta-expand-toggle-text">@GetMachineDetailSummary(item)</span>
+                                            </button>
                                         }
                                         else
                                         {
-                                            <span class="meta-machine-code-empty">-</span>
+                                            <span class="meta-sync-summary-empty">-</span>
                                         }
                                     </td>
                                     <td>@DisplayOrDash(item.Line)</td>
-                                    <td class="text-nowrap">
+                                    <td class="text-nowrap meta-deadline-cell">
                                         @if (item.FirstADeadline.HasValue)
                                         {
                                             <span class="@GetDeadlineBadgeClass(item.FirstADeadline)">
@@ -178,6 +172,40 @@
                                         <a asp-action="Edit" asp-route-machineName="@item.MESMachineName" class="btn meta-edit-button">編輯</a>
                                     </td>
                                 </tr>
+
+                                @if (HasMachineDetail(item))
+                                {
+                                    <tr id="@detailId" class="meta-expand-row" hidden>
+                                        <td colspan="@detailColumnCount" class="meta-expand-row-cell">
+                                            <div class="meta-expand-panel">
+                                                <div class="meta-expand-panel-title">同步資訊</div>
+                                                <div class="meta-expand-panel-list">
+                                                    @foreach (var detail in item.SyncDetails)
+                                                    {
+                                                        <div class="meta-expand-panel-item">
+                                                            <div class="meta-expand-panel-row">
+                                                                <span class="meta-expand-panel-label">MESMachineNo_String</span>
+                                                                <span class="meta-expand-panel-value">@DisplayOrDash(detail.MESMachineNoString)</span>
+                                                            </div>
+                                                            <div class="meta-expand-panel-row">
+                                                                <span class="meta-expand-panel-label">MESSubEQNo_String</span>
+                                                                <span class="meta-expand-panel-value">@DisplayOrDash(detail.MESSubEQNoString)</span>
+                                                            </div>
+                                                            <div class="meta-expand-panel-row">
+                                                                <span class="meta-expand-panel-label">Vendor</span>
+                                                                <span class="meta-expand-panel-value">@DisplayOrDash(detail.Vendor)</span>
+                                                            </div>
+                                                            <div class="meta-expand-panel-row">
+                                                                <span class="meta-expand-panel-label">IP</span>
+                                                                <span class="meta-expand-panel-value">@DisplayOrDash(detail.Ip)</span>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
                             }
                         }
                         else
@@ -192,3 +220,29 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        document.addEventListener("click", function (event) {
+            const button = event.target.closest(".meta-expand-toggle");
+            if (!button) {
+                return;
+            }
+
+            const targetId = button.getAttribute("data-target");
+            if (!targetId) {
+                return;
+            }
+
+            const targetRow = document.getElementById(targetId);
+            if (!targetRow) {
+                return;
+            }
+
+            const isOpen = !targetRow.hasAttribute("hidden");
+            targetRow.toggleAttribute("hidden", isOpen);
+            button.setAttribute("aria-expanded", isOpen ? "false" : "true");
+            button.classList.toggle("is-open", !isOpen);
+        });
+    </script>
+}

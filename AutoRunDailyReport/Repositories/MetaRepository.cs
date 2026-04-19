@@ -62,8 +62,7 @@ WITH SyncBase AS (
 FilteredMachine AS (
 SELECT
     b.MESMachineName,
-    MAX(b.SyncLine) AS SyncLine,
-    MAX(b.MESMachineNoString) AS MESMachineNoString
+    MAX(b.SyncLine) AS SyncLine
 FROM SyncBase b
 LEFT JOIN dbo.MesMachinesMeta m ON b.MESMachineName = m.MESMachineName
 WHERE (
@@ -79,7 +78,6 @@ GROUP BY b.MESMachineName
             const string listSql = @"
 SELECT
     f.MESMachineName,
-    f.MESMachineNoString AS MESMachineNoString,
     ISNULL(NULLIF(LTRIM(RTRIM(m.Line)), N''), f.SyncLine) AS Line,
     m.State,
     m.AiotOwner,
@@ -110,34 +108,41 @@ ORDER BY
             const string detailSqlWithIp = @"
 SELECT
     b.MESMachineName,
+    b.MESMachineNoString AS MESMachineNoString,
     b.MESSubEQNoString AS MESSubEQNoString,
     b.Vendor,
     MAX(NULLIF(LTRIM(RTRIM(ip.[ip])), N'')) AS Ip
 FROM SyncBase b
 INNER JOIN FilteredMachine f ON b.MESMachineName = f.MESMachineName
 LEFT JOIN dbo.[ip] ip ON NULLIF(LTRIM(RTRIM(ip.[EQUIPMENTID])), N'') = b.MESSubEQNoString
-WHERE b.MESSubEQNoString IS NOT NULL
+WHERE b.MESMachineNoString IS NOT NULL
+   OR b.MESSubEQNoString IS NOT NULL
    OR b.Vendor IS NOT NULL
 GROUP BY
     b.MESMachineName,
+    b.MESMachineNoString,
     b.MESSubEQNoString,
     b.Vendor
 ORDER BY
     b.MESMachineName,
+    b.MESMachineNoString,
     b.MESSubEQNoString;";
 
             const string detailSqlWithoutIp = @"
 SELECT
     b.MESMachineName,
+    b.MESMachineNoString AS MESMachineNoString,
     b.MESSubEQNoString AS MESSubEQNoString,
     b.Vendor,
     CAST(NULL AS NVARCHAR(100)) AS Ip
 FROM SyncBase b
 INNER JOIN FilteredMachine f ON b.MESMachineName = f.MESMachineName
-WHERE b.MESSubEQNoString IS NOT NULL
+WHERE b.MESMachineNoString IS NOT NULL
+   OR b.MESSubEQNoString IS NOT NULL
    OR b.Vendor IS NOT NULL
 ORDER BY
     b.MESMachineName,
+    b.MESMachineNoString,
     b.MESSubEQNoString;";
 
             using var conn = new SqlConnection(_connectionString);
@@ -164,6 +169,7 @@ ORDER BY
                     group => group
                         .GroupBy(detail => new
                         {
+                            MESMachineNoString = detail.MESMachineNoString?.Trim(),
                             MESSubEQNoString = detail.MESSubEQNoString?.Trim(),
                             Vendor = detail.Vendor?.Trim(),
                             Ip = detail.Ip?.Trim()
@@ -171,11 +177,13 @@ ORDER BY
                         .Select(grouped => new MesMachineMetaDetailDto
                         {
                             MESMachineName = group.Key,
+                            MESMachineNoString = grouped.Key.MESMachineNoString,
                             MESSubEQNoString = grouped.Key.MESSubEQNoString,
                             Vendor = grouped.Key.Vendor,
                             Ip = grouped.Key.Ip
                         })
-                        .OrderBy(detail => detail.MESSubEQNoString)
+                        .OrderBy(detail => detail.MESMachineNoString)
+                        .ThenBy(detail => detail.MESSubEQNoString)
                         .ThenBy(detail => detail.Vendor)
                         .ToList(),
                     StringComparer.OrdinalIgnoreCase);

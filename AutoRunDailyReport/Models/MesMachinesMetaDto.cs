@@ -7,7 +7,6 @@ namespace AutoRunDailyReport.Models
     public class MesMachinesMetaDto
     {
         public string MESMachineName { get; set; } = "";
-        public string? MESMachineNoString { get; set; }
         public string? Line { get; set; }
         public string? State { get; set; }
         public string? AiotOwner { get; set; }
@@ -23,6 +22,7 @@ namespace AutoRunDailyReport.Models
     public class MesMachineMetaDetailDto
     {
         public string MESMachineName { get; set; } = "";
+        public string? MESMachineNoString { get; set; }
         public string? MESSubEQNoString { get; set; }
         public string? Vendor { get; set; }
         public string? Ip { get; set; }
