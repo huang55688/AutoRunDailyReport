@@ -223,15 +223,16 @@
                                     <span class="reminder-days">@GetReminderText(item.DaysRemaining)</span>
                                 </div>
 
-                                @if (item.OneADeadline.HasValue)
-                                {
-                                    <form asp-action="HideReminder" method="post" class="reminder-action-form">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="line" value="@item.Line" />
-                                        <input type="hidden" name="oneADeadline" value="@item.OneADeadline.Value.ToString("yyyy-MM-dd")" />
-                                        <label class="reminder-check-label">
-                                            <input type="checkbox" class="reminder-check-input" onchange="this.form.submit()" />
-                                            <span>已排程</span>
+                                 @if (item.OneADeadline.HasValue)
+                                 {
+                                     <form asp-action="HideReminder" method="post" class="reminder-action-form">
+                                         @Html.AntiForgeryToken()
+                                         <input type="hidden" name="machineName" value="@item.MachineName" />
+                                         <input type="hidden" name="line" value="@item.Line" />
+                                         <input type="hidden" name="oneADeadline" value="@item.OneADeadline.Value.ToString("yyyy-MM-dd")" />
+                                         <label class="reminder-check-label">
+                                             <input type="checkbox" class="reminder-check-input" onchange="this.form.submit()" />
+                                             <span>已排程</span>
                                         </label>
                                     </form>
                                 }

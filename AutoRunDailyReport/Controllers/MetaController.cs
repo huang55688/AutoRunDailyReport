@@ -13,12 +13,12 @@ namespace AutoRunDailyReport.Controllers
             _metaRepo = metaRepo;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string? search = null, bool futureDeadline = false)
         {
             IEnumerable<MesMachinesMetaDto> list;
             try
             {
-                list = await _metaRepo.GetAllLinesWithMetaAsync();
+                list = await _metaRepo.GetAllLinesWithMetaAsync(search, futureDeadline);
             }
             catch
             {
@@ -26,6 +26,8 @@ namespace AutoRunDailyReport.Controllers
                 ViewBag.Warning = "資料載入失敗，可能是同步資料表尚未建立或目前資料庫無法連線。";
             }
 
+            ViewBag.Search = search?.Trim();
+            ViewBag.FutureDeadline = futureDeadline;
             return View(list);
         }
 

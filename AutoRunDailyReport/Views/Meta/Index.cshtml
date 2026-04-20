@@ -4,11 +4,24 @@
     ViewData["Title"] = "機台資料管理";
     var culture = CultureInfo.GetCultureInfo("zh-TW");
     var items = Model?.ToList() ?? new List<AutoRunDailyReport.Models.MesMachinesMetaDto>();
+    var currentSearch = ViewBag.Search as string ?? string.Empty;
+    var futureDeadline = ViewBag.FutureDeadline is bool enabled && enabled;
 }
 @functions {
     public string DisplayOrDash(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+
+    public bool HasMachineDetail(AutoRunDailyReport.Models.MesMachinesMetaDto item)
+    {
+        return item.SyncDetails?.Any() ?? false;
+    }
+
+    public string GetMachineDetailSummary(AutoRunDailyReport.Models.MesMachinesMetaDto item)
+    {
+        var detailCount = item.SyncDetails.Count;
+        return detailCount <= 0 ? "查看同步資訊" : $"查看 {detailCount} 筆";
     }
 
     public string GetDeadlineBadgeClass(DateTime? deadline)
@@ -44,6 +57,40 @@
         <div class="meta-alert meta-alert-warning mb-3">@warning</div>
     }
 
+    <div class="meta-tools mb-3">
+        <div class="meta-toolbar">
+            <form asp-action="Index" method="get" class="meta-search-form">
+                <label for="meta-search" class="meta-search-label">搜尋</label>
+                <input
+                    id="meta-search"
+                    type="text"
+                    name="search"
+                    value="@currentSearch"
+                    class="form-control meta-search-input"
+                    placeholder="搜尋 Line 或 MESMachineName" />
+                @if (futureDeadline)
+                {
+                    <input type="hidden" name="futureDeadline" value="true" />
+                }
+                <button type="submit" class="btn meta-primary-button meta-toolbar-button">搜尋</button>
+                @if (!string.IsNullOrWhiteSpace(currentSearch) || futureDeadline)
+                {
+                    <a asp-action="Index" class="btn meta-secondary-button meta-toolbar-button">清除</a>
+                }
+            </form>
+
+            <div class="meta-toolbar-actions">
+                <a
+                    asp-action="Index"
+                    asp-route-search="@currentSearch"
+                    asp-route-futureDeadline="@(futureDeadline ? "false" : "true")"
+                    class="btn meta-deadline-sort-button @(futureDeadline ? "is-active" : string.Empty)">
+                    未來DeadLine
+                </a>
+            </div>
+        </div>
+    </div>
+
     <div class="meta-table-shell">
         <div class="meta-table-wrap">
             <div class="table-responsive">
@@ -51,6 +98,7 @@
                     <thead>
                         <tr>
                             <th>MESMachineName</th>
+                            <th>同步資訊</th>
                             <th>Line</th>
                             <th>1A Deadline</th>
                             <th>State</th>
@@ -59,18 +107,39 @@
                             <th>Test Status</th>
                             <th>Schedule</th>
                             <th>最後更新</th>
-                            <th></th>
+                            <th>操作</th>
                         </tr>
                     </thead>
                     <tbody>
                         @if (items.Any())
                         {
-                            foreach (var item in items)
+                            var detailColumnCount = 11;
+
+                            for (var index = 0; index < items.Count; index++)
                             {
+                                var item = items[index];
+                                var detailId = $"meta-detail-{index}";
+
                                 <tr>
                                     <td class="meta-line-cell">@item.MESMachineName</td>
+                                    <td class="meta-sync-summary-cell">
+                                        @if (HasMachineDetail(item))
+                                        {
+                                            <button
+                                                type="button"
+                                                class="btn meta-expand-toggle"
+                                                data-target="@detailId"
+                                                aria-expanded="false">
+                                                <span class="meta-expand-toggle-text">@GetMachineDetailSummary(item)</span>
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <span class="meta-sync-summary-empty">-</span>
+                                        }
+                                    </td>
                                     <td>@DisplayOrDash(item.Line)</td>
-                                    <td class="text-nowrap">
+                                    <td class="text-nowrap meta-deadline-cell">
                                         @if (item.FirstADeadline.HasValue)
                                         {
                                             <span class="@GetDeadlineBadgeClass(item.FirstADeadline)">
@@ -92,12 +161,46 @@
                                         <a asp-action="Edit" asp-route-machineName="@item.MESMachineName" class="btn meta-edit-button">編輯</a>
                                     </td>
                                 </tr>
+
+                                @if (HasMachineDetail(item))
+                                {
+                                    <tr id="@detailId" class="meta-expand-row" hidden>
+                                        <td colspan="@detailColumnCount" class="meta-expand-row-cell">
+                                            <div class="meta-expand-panel">
+                                                <div class="meta-expand-panel-title">同步資訊</div>
+                                                <div class="table-responsive meta-expand-table-wrap">
+                                                    <table class="table meta-expand-table mb-0">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>MESMachineNo_String</th>
+                                                                <th>MESSubEQNo_String</th>
+                                                                <th>Vendor</th>
+                                                                <th>IP</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach (var detail in item.SyncDetails)
+                                                            {
+                                                                <tr>
+                                                                    <td>@DisplayOrDash(detail.MESMachineNoString)</td>
+                                                                    <td>@DisplayOrDash(detail.MESSubEQNoString)</td>
+                                                                    <td>@DisplayOrDash(detail.Vendor)</td>
+                                                                    <td>@DisplayOrDash(detail.Ip)</td>
+                                                                </tr>
+                                                            }
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
                             }
                         }
                         else
                         {
                             <tr>
-                                <td colspan="10" class="meta-empty-state">目前沒有任何機台資料。</td>
+                                <td colspan="11" class="meta-empty-state">目前沒有任何機台資料。</td>
                             </tr>
                         }
                     </tbody>
@@ -106,3 +209,29 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        document.addEventListener("click", function (event) {
+            const button = event.target.closest(".meta-expand-toggle");
+            if (!button) {
+                return;
+            }
+
+            const targetId = button.getAttribute("data-target");
+            if (!targetId) {
+                return;
+            }
+
+            const targetRow = document.getElementById(targetId);
+            if (!targetRow) {
+                return;
+            }
+
+            const isOpen = !targetRow.hasAttribute("hidden");
+            targetRow.toggleAttribute("hidden", isOpen);
+            button.setAttribute("aria-expanded", isOpen ? "false" : "true");
+            button.classList.toggle("is-open", !isOpen);
+        });
+    </script>
+}

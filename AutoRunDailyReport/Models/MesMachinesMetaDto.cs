@@ -16,5 +16,15 @@ namespace AutoRunDailyReport.Models
         public DateTime? FirstADeadline { get; set; }
         public string? Illustrate { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public List<MesMachineMetaDetailDto> SyncDetails { get; set; } = new();
+    }
+
+    public class MesMachineMetaDetailDto
+    {
+        public string MESMachineName { get; set; } = "";
+        public string? MESMachineNoString { get; set; }
+        public string? MESSubEQNoString { get; set; }
+        public string? Vendor { get; set; }
+        public string? Ip { get; set; }
     }
 }

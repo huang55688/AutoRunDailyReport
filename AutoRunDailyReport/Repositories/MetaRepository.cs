@@ -45,12 +45,40 @@ CREATE TABLE dbo.MesMachinesMeta (
         /// 從 MesMachinesSync 取所有 MESMachineName，LEFT JOIN MesMachinesMeta。
         /// 即使尚未手動編輯過的機台也會出現。
         /// </summary>
-        public async Task<IEnumerable<MesMachinesMetaDto>> GetAllLinesWithMetaAsync()
+        public async Task<IEnumerable<MesMachinesMetaDto>> GetAllLinesWithMetaAsync(string? search = null, bool futureDeadline = false)
         {
-            const string sql = @"
+            const string baseSql = @"
+WITH SyncBase AS (
+    SELECT DISTINCT
+        LTRIM(RTRIM(s.MESMachineName)) AS MESMachineName,
+        NULLIF(LTRIM(RTRIM(s.Line)), N'') AS SyncLine,
+        NULLIF(LTRIM(RTRIM(s.MESMachineNo_String)), N'') AS MESMachineNoString,
+        NULLIF(LTRIM(RTRIM(s.MESSubEQNo_String)), N'') AS MESSubEQNoString,
+        NULLIF(LTRIM(RTRIM(s.Vendor)), N'') AS Vendor
+    FROM dbo.MesMachinesSync s
+    WHERE s.MESMachineName IS NOT NULL
+      AND LTRIM(RTRIM(s.MESMachineName)) != N''
+),
+FilteredMachine AS (
 SELECT
-    s.MESMachineName,
-    s.Line,
+    b.MESMachineName,
+    MAX(b.SyncLine) AS SyncLine
+FROM SyncBase b
+LEFT JOIN dbo.MesMachinesMeta m ON b.MESMachineName = m.MESMachineName
+WHERE (
+        @Search IS NULL
+     OR @Search = N''
+     OR b.MESMachineName LIKE N'%' + @Search + N'%'
+     OR ISNULL(NULLIF(LTRIM(RTRIM(m.Line)), N''), ISNULL(b.SyncLine, N'')) LIKE N'%' + @Search + N'%'
+)
+GROUP BY b.MESMachineName
+)
+";
+
+            const string listSql = @"
+SELECT
+    f.MESMachineName,
+    ISNULL(NULLIF(LTRIM(RTRIM(m.Line)), N''), f.SyncLine) AS Line,
     m.State,
     m.AiotOwner,
     m.Owner,
@@ -59,16 +87,116 @@ SELECT
     m.FirstADeadline,
     m.Illustrate,
     m.UpdatedAt
-FROM (
-    SELECT DISTINCT MESMachineName, Line
-    FROM dbo.MesMachinesSync
-    WHERE MESMachineName IS NOT NULL
-      AND LTRIM(RTRIM(MESMachineName)) != ''
-) s
-LEFT JOIN dbo.MesMachinesMeta m ON s.MESMachineName = m.MESMachineName
-ORDER BY s.MESMachineName;";
+FROM FilteredMachine f
+LEFT JOIN dbo.MesMachinesMeta m ON f.MESMachineName = m.MESMachineName
+ORDER BY
+    CASE
+        WHEN @FutureDeadline = 1
+         AND m.FirstADeadline IS NOT NULL
+         AND CAST(m.FirstADeadline AS date) >= CAST(GETDATE() AS date)
+        THEN 0
+        ELSE 1
+    END,
+    CASE
+        WHEN @FutureDeadline = 1
+         AND m.FirstADeadline IS NOT NULL
+         AND CAST(m.FirstADeadline AS date) >= CAST(GETDATE() AS date)
+        THEN CAST(m.FirstADeadline AS date)
+    END ASC,
+    f.MESMachineName;";
+
+            const string detailSqlWithIp = @"
+SELECT
+    b.MESMachineName,
+    b.MESMachineNoString AS MESMachineNoString,
+    b.MESSubEQNoString AS MESSubEQNoString,
+    b.Vendor,
+    MAX(NULLIF(LTRIM(RTRIM(ip.[ip])), N'')) AS Ip
+FROM SyncBase b
+INNER JOIN FilteredMachine f ON b.MESMachineName = f.MESMachineName
+LEFT JOIN dbo.[ip] ip ON NULLIF(LTRIM(RTRIM(ip.[EQUIPMENTID])), N'') = b.MESSubEQNoString
+WHERE b.MESMachineNoString IS NOT NULL
+   OR b.MESSubEQNoString IS NOT NULL
+   OR b.Vendor IS NOT NULL
+GROUP BY
+    b.MESMachineName,
+    b.MESMachineNoString,
+    b.MESSubEQNoString,
+    b.Vendor
+ORDER BY
+    b.MESMachineName,
+    b.MESMachineNoString,
+    b.MESSubEQNoString;";
+
+            const string detailSqlWithoutIp = @"
+SELECT
+    b.MESMachineName,
+    b.MESMachineNoString AS MESMachineNoString,
+    b.MESSubEQNoString AS MESSubEQNoString,
+    b.Vendor,
+    CAST(NULL AS NVARCHAR(100)) AS Ip
+FROM SyncBase b
+INNER JOIN FilteredMachine f ON b.MESMachineName = f.MESMachineName
+WHERE b.MESMachineNoString IS NOT NULL
+   OR b.MESSubEQNoString IS NOT NULL
+   OR b.Vendor IS NOT NULL
+ORDER BY
+    b.MESMachineName,
+    b.MESMachineNoString,
+    b.MESSubEQNoString;";
+
             using var conn = new SqlConnection(_connectionString);
-            return await conn.QueryAsync<MesMachinesMetaDto>(sql);
+            var hasIpTable = await HasIpTableAsync(conn);
+            var sql = baseSql
+                + listSql
+                + Environment.NewLine
+                + baseSql
+                + (hasIpTable ? detailSqlWithIp : detailSqlWithoutIp);
+            var parameters = new
+            {
+                Search = string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
+                FutureDeadline = futureDeadline
+            };
+
+            using var multi = await conn.QueryMultipleAsync(sql, parameters);
+            var items = (await multi.ReadAsync<MesMachinesMetaDto>()).ToList();
+            var details = (await multi.ReadAsync<MesMachineMetaDetailDto>()).ToList();
+
+            var detailLookup = details
+                .GroupBy(detail => detail.MESMachineName, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group
+                        .GroupBy(detail => new
+                        {
+                            MESMachineNoString = detail.MESMachineNoString?.Trim(),
+                            MESSubEQNoString = detail.MESSubEQNoString?.Trim(),
+                            Vendor = detail.Vendor?.Trim(),
+                            Ip = detail.Ip?.Trim()
+                        })
+                        .Select(grouped => new MesMachineMetaDetailDto
+                        {
+                            MESMachineName = group.Key,
+                            MESMachineNoString = grouped.Key.MESMachineNoString,
+                            MESSubEQNoString = grouped.Key.MESSubEQNoString,
+                            Vendor = grouped.Key.Vendor,
+                            Ip = grouped.Key.Ip
+                        })
+                        .OrderBy(detail => detail.MESMachineNoString)
+                        .ThenBy(detail => detail.MESSubEQNoString)
+                        .ThenBy(detail => detail.Vendor)
+                        .ToList(),
+                    StringComparer.OrdinalIgnoreCase);
+
+            foreach (var item in items)
+            {
+                if (detailLookup.TryGetValue(item.MESMachineName, out var machineDetails))
+                {
+                    item.SyncDetails = machineDetails;
+                }
+            }
+
+            return items;
         }
 
         public async Task<MesMachinesMetaDto?> GetByMachineNameAsync(string machineName)
@@ -82,13 +210,12 @@ ORDER BY s.MESMachineName;";
         {
             await EnsureReminderHiddenTableExistsAsync();
 
-            const string sql = @"
+            const string machineNameSql = @"
 SELECT
     meta.MESMachineName AS MachineName,
-    sync.Line,
+    NULLIF(LTRIM(RTRIM(meta.Line)), N'') AS Line,
     meta.FirstADeadline AS OneADeadline
 FROM dbo.MesMachinesMeta meta
-LEFT JOIN dbo.MesMachinesSync sync ON sync.MESMachineName = meta.MESMachineName
 LEFT JOIN dbo.OneATimeReminderHidden hidden
     ON hidden.MESMachineName = meta.MESMachineName
    AND hidden.DeadlineDate = CAST(meta.FirstADeadline AS date)
@@ -96,18 +223,73 @@ WHERE meta.FirstADeadline IS NOT NULL
   AND CAST(meta.FirstADeadline AS date) >= CAST(GETDATE() AS date)
   AND CAST(meta.FirstADeadline AS date) <= DATEADD(DAY, @Days, CAST(GETDATE() AS date))
   AND hidden.MESMachineName IS NULL
-GROUP BY meta.MESMachineName, sync.Line, meta.FirstADeadline
+ORDER BY meta.FirstADeadline, meta.MESMachineName;";
+
+            const string lineSql = @"
+SELECT
+    meta.MESMachineName AS MachineName,
+    NULLIF(LTRIM(RTRIM(meta.Line)), N'') AS Line,
+    meta.FirstADeadline AS OneADeadline
+FROM dbo.MesMachinesMeta meta
+LEFT JOIN dbo.OneATimeReminderHidden hidden
+    ON hidden.Line = meta.Line
+   AND hidden.DeadlineDate = CAST(meta.FirstADeadline AS date)
+WHERE meta.FirstADeadline IS NOT NULL
+  AND CAST(meta.FirstADeadline AS date) >= CAST(GETDATE() AS date)
+  AND CAST(meta.FirstADeadline AS date) <= DATEADD(DAY, @Days, CAST(GETDATE() AS date))
+  AND hidden.Line IS NULL
 ORDER BY meta.FirstADeadline, meta.MESMachineName;";
 
             using var conn = new SqlConnection(_connectionString);
+            var keyMode = await GetReminderHiddenKeyModeAsync(conn);
+            var sql = keyMode == "Line" ? lineSql : machineNameSql;
             return await conn.QueryAsync<ReminderItemDto>(sql, new { Days = days });
         }
 
-        public async Task HideReminderAsync(string machineName, DateTime deadlineDate)
+        public async Task HideReminderAsync(string? machineName, string? line, DateTime deadlineDate)
         {
             await EnsureReminderHiddenTableExistsAsync();
 
-            const string sql = @"
+            using var conn = new SqlConnection(_connectionString);
+            var keyMode = await GetReminderHiddenKeyModeAsync(conn);
+
+            if (keyMode == "Line")
+            {
+                if (string.IsNullOrWhiteSpace(line))
+                {
+                    throw new InvalidOperationException("OneATimeReminderHidden 目前使用 Line 結構，但提醒項目沒有 Line。");
+                }
+
+                const string lineSql = @"
+MERGE dbo.OneATimeReminderHidden AS target
+USING (
+    SELECT
+        @Line AS Line,
+        @DeadlineDate AS DeadlineDate
+) AS source
+ON target.Line = source.Line
+AND target.DeadlineDate = source.DeadlineDate
+WHEN MATCHED THEN
+    UPDATE SET HiddenAt = GETDATE()
+WHEN NOT MATCHED THEN
+    INSERT (Line, DeadlineDate, HiddenAt)
+    VALUES (@Line, @DeadlineDate, GETDATE());";
+
+                await conn.ExecuteAsync(lineSql, new
+                {
+                    Line = line.Trim(),
+                    DeadlineDate = deadlineDate.Date
+                });
+
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(machineName))
+            {
+                throw new InvalidOperationException("OneATimeReminderHidden 目前使用 MESMachineName 結構，但提醒項目沒有 MESMachineName。");
+            }
+
+            const string machineNameSql = @"
 MERGE dbo.OneATimeReminderHidden AS target
 USING (
     SELECT
@@ -122,10 +304,9 @@ WHEN NOT MATCHED THEN
     INSERT (MESMachineName, DeadlineDate, HiddenAt)
     VALUES (@MESMachineName, @DeadlineDate, GETDATE());";
 
-            using var conn = new SqlConnection(_connectionString);
-            await conn.ExecuteAsync(sql, new
+            await conn.ExecuteAsync(machineNameSql, new
             {
-                MESMachineName = machineName,
+                MESMachineName = machineName.Trim(),
                 DeadlineDate = deadlineDate.Date
             });
         }
@@ -204,6 +385,39 @@ WHEN NOT MATCHED BY TARGET THEN
 
             using var conn = new SqlConnection(_connectionString);
             await conn.ExecuteAsync(sql);
+        }
+
+        private async Task<string> GetReminderHiddenKeyModeAsync(SqlConnection conn)
+        {
+            const string sql = @"
+SELECT CASE
+    WHEN EXISTS (
+        SELECT 1
+        FROM sys.columns
+        WHERE object_id = OBJECT_ID(N'[dbo].[OneATimeReminderHidden]')
+          AND name = N'Line'
+    ) THEN N'Line'
+    WHEN EXISTS (
+        SELECT 1
+        FROM sys.columns
+        WHERE object_id = OBJECT_ID(N'[dbo].[OneATimeReminderHidden]')
+          AND name = N'MESMachineName'
+    ) THEN N'MESMachineName'
+    ELSE N'MESMachineName'
+END;";
+
+            return await conn.ExecuteScalarAsync<string>(sql) ?? "MESMachineName";
+        }
+
+        private async Task<bool> HasIpTableAsync(SqlConnection conn)
+        {
+            const string sql = @"
+SELECT CASE
+    WHEN OBJECT_ID(N'[dbo].[ip]', N'U') IS NULL THEN CAST(0 AS bit)
+    ELSE CAST(1 AS bit)
+END;";
+
+            return await conn.ExecuteScalarAsync<bool>(sql);
         }
 
         private async Task EnsureReminderHiddenTableExistsAsync()
