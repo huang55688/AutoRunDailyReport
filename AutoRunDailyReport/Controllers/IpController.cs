@@ -119,7 +119,7 @@ namespace AutoRunDailyReport.Controllers
             try
             {
                 await _ipRepository.UpdateIpAsync(request);
-                TempData["Success"] = $"已儲存 {request.LineId} / {request.EquipmentId} 的 IP。";
+                TempData["Success"] = $"已儲存 {request.LineId} / {request.EquipmentId} 的 IP / Device。";
             }
             catch (Exception ex)
             {

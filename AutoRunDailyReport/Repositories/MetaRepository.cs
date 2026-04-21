@@ -68,8 +68,8 @@ LEFT JOIN dbo.MesMachinesMeta m ON b.MESMachineName = m.MESMachineName
 WHERE (
         @Search IS NULL
      OR @Search = N''
-     OR b.MESMachineName LIKE N'%' + @Search + N'%'
-     OR ISNULL(NULLIF(LTRIM(RTRIM(m.Line)), N''), ISNULL(b.SyncLine, N'')) LIKE N'%' + @Search + N'%'
+     OR UPPER(REPLACE(b.MESMachineName, N' ', N'')) LIKE UPPER(N'%' + REPLACE(@Search, N' ', N'') + N'%')
+     OR UPPER(REPLACE(ISNULL(NULLIF(LTRIM(RTRIM(m.Line)), N''), ISNULL(b.SyncLine, N'')), N' ', N'')) LIKE UPPER(N'%' + REPLACE(@Search, N' ', N'') + N'%')
 )
 GROUP BY b.MESMachineName
 )
@@ -111,10 +111,13 @@ SELECT
     b.MESMachineNoString AS MESMachineNoString,
     b.MESSubEQNoString AS MESSubEQNoString,
     b.Vendor,
-    MAX(NULLIF(LTRIM(RTRIM(ip.[ip])), N'')) AS Ip
+    MAX(NULLIF(LTRIM(RTRIM(ip.[ip])), N'')) AS Ip,
+    MAX(NULLIF(LTRIM(RTRIM(ip.[Device])), N'')) AS Device
 FROM SyncBase b
 INNER JOIN FilteredMachine f ON b.MESMachineName = f.MESMachineName
-LEFT JOIN dbo.[ip] ip ON NULLIF(LTRIM(RTRIM(ip.[EQUIPMENTID])), N'') = b.MESSubEQNoString
+LEFT JOIN dbo.[ip] ip
+    ON NULLIF(LTRIM(RTRIM(ip.[LINEID])), N'') = b.MESMachineNoString
+   AND NULLIF(LTRIM(RTRIM(ip.[EQUIPMENTID])), N'') = b.MESSubEQNoString
 WHERE b.MESMachineNoString IS NOT NULL
    OR b.MESSubEQNoString IS NOT NULL
    OR b.Vendor IS NOT NULL
@@ -134,7 +137,8 @@ SELECT
     b.MESMachineNoString AS MESMachineNoString,
     b.MESSubEQNoString AS MESSubEQNoString,
     b.Vendor,
-    CAST(NULL AS NVARCHAR(100)) AS Ip
+    CAST(NULL AS NVARCHAR(100)) AS Ip,
+    CAST(NULL AS NVARCHAR(100)) AS Device
 FROM SyncBase b
 INNER JOIN FilteredMachine f ON b.MESMachineName = f.MESMachineName
 WHERE b.MESMachineNoString IS NOT NULL
@@ -172,7 +176,8 @@ ORDER BY
                             MESMachineNoString = detail.MESMachineNoString?.Trim(),
                             MESSubEQNoString = detail.MESSubEQNoString?.Trim(),
                             Vendor = detail.Vendor?.Trim(),
-                            Ip = detail.Ip?.Trim()
+                            Ip = detail.Ip?.Trim(),
+                            Device = detail.Device?.Trim()
                         })
                         .Select(grouped => new MesMachineMetaDetailDto
                         {
@@ -180,7 +185,8 @@ ORDER BY
                             MESMachineNoString = grouped.Key.MESMachineNoString,
                             MESSubEQNoString = grouped.Key.MESSubEQNoString,
                             Vendor = grouped.Key.Vendor,
-                            Ip = grouped.Key.Ip
+                            Ip = grouped.Key.Ip,
+                            Device = grouped.Key.Device
                         })
                         .OrderBy(detail => detail.MESMachineNoString)
                         .ThenBy(detail => detail.MESSubEQNoString)
@@ -412,10 +418,19 @@ END;";
         private async Task<bool> HasIpTableAsync(SqlConnection conn)
         {
             const string sql = @"
-SELECT CASE
-    WHEN OBJECT_ID(N'[dbo].[ip]', N'U') IS NULL THEN CAST(0 AS bit)
-    ELSE CAST(1 AS bit)
-END;";
+IF OBJECT_ID(N'[dbo].[ip]', N'U') IS NULL
+BEGIN
+    SELECT CAST(0 AS bit);
+    RETURN;
+END;
+
+IF COL_LENGTH(N'dbo.ip', N'Device') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[ip]
+    ADD [Device] NVARCHAR(100) NULL;
+END;
+
+SELECT CAST(1 AS bit);";
 
             return await conn.ExecuteScalarAsync<bool>(sql);
         }

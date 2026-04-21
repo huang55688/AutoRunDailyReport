@@ -26,6 +26,7 @@ BEGIN
         [LINEID]      NVARCHAR(100) NOT NULL,
         [EQUIPMENTID] NVARCHAR(100) NOT NULL,
         [ip]          NVARCHAR(100) NULL,
+        [Device]      NVARCHAR(100) NULL,
         CONSTRAINT [PK_ip] PRIMARY KEY ([LINEID], [EQUIPMENTID])
     );
 END
@@ -47,14 +48,16 @@ BEGIN
         [LINEID]      NVARCHAR(100) NOT NULL,
         [EQUIPMENTID] NVARCHAR(100) NOT NULL,
         [ip]          NVARCHAR(100) NULL,
+        [Device]      NVARCHAR(100) NULL,
         CONSTRAINT [PK_ip_migrating] PRIMARY KEY ([LINEID], [EQUIPMENTID])
     );
 
-    INSERT INTO [dbo].[ip_migrating] ([LINEID], [EQUIPMENTID], [ip])
+    INSERT INTO [dbo].[ip_migrating] ([LINEID], [EQUIPMENTID], [ip], [Device])
     SELECT
         CAST([LINEID] AS NVARCHAR(100)) AS [LINEID],
         CAST([EQUIPMENTID] AS NVARCHAR(100)) AS [EQUIPMENTID],
-        MAX(NULLIF(LTRIM(RTRIM([ip])), N'')) AS [ip]
+        MAX(NULLIF(LTRIM(RTRIM([ip])), N'')) AS [ip],
+        CAST(NULL AS NVARCHAR(100)) AS [Device]
     FROM [dbo].[ip]
     GROUP BY [LINEID], [EQUIPMENTID];
 
@@ -63,6 +66,12 @@ BEGIN
     EXEC sp_rename N'[PK_ip_migrating]', N'PK_ip', N'OBJECT';
 
     COMMIT TRANSACTION;
+END;
+
+IF COL_LENGTH(N'dbo.ip', N'Device') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[ip]
+    ADD [Device] NVARCHAR(100) NULL;
 END;";
 
             using var conn = new SqlConnection(_targetConnectionString);
@@ -77,7 +86,8 @@ END;";
 SELECT
     [LINEID] AS LineId,
     [EQUIPMENTID] AS EquipmentId,
-    [ip] AS Ip
+    [ip] AS Ip,
+    [Device] AS Device
 FROM [dbo].[ip]
 ORDER BY [LINEID], [EQUIPMENTID];";
 
@@ -126,7 +136,8 @@ ORDER BY LineId;";
 SELECT DISTINCT
     CAST(LTRIM(RTRIM([MESMachineNo_String])) AS NVARCHAR(100)) AS LineId,
     CAST(LTRIM(RTRIM([MESSubEQNo_String])) AS NVARCHAR(100)) AS EquipmentId,
-    CAST(NULL AS NVARCHAR(100)) AS Ip
+    CAST(NULL AS NVARCHAR(100)) AS Ip,
+    CAST(NULL AS NVARCHAR(100)) AS Device
 FROM [dbo].[MesMachinesSync]
 WHERE NULLIF(LTRIM(RTRIM([MESMachineNo_String])), N'') IS NOT NULL
   AND NULLIF(LTRIM(RTRIM([MESSubEQNo_String])), N'') IS NOT NULL
@@ -163,8 +174,8 @@ IF NOT EXISTS (
       AND [EQUIPMENTID] = @EquipmentId
 )
 BEGIN
-    INSERT INTO [dbo].[ip] ([LINEID], [EQUIPMENTID], [ip])
-    VALUES (@LineId, @EquipmentId, NULL);
+    INSERT INTO [dbo].[ip] ([LINEID], [EQUIPMENTID], [ip], [Device])
+    VALUES (@LineId, @EquipmentId, NULL, NULL);
 END;";
 
             foreach (var row in sourceRows)
@@ -193,22 +204,34 @@ END;";
             await EnsureTableExistsAsync();
 
             const string sql = @"
-UPDATE [dbo].[ip]
-SET [ip] = @Ip
-WHERE [LINEID] = @LineId
-  AND [EQUIPMENTID] = @EquipmentId;";
+MERGE [dbo].[ip] AS target
+USING (
+    SELECT
+        @LineId AS [LINEID],
+        @EquipmentId AS [EQUIPMENTID]
+) AS source
+ON target.[LINEID] = source.[LINEID]
+AND target.[EQUIPMENTID] = source.[EQUIPMENTID]
+WHEN MATCHED THEN
+    UPDATE SET
+        [ip] = @Ip,
+        [Device] = @Device
+WHEN NOT MATCHED THEN
+    INSERT ([LINEID], [EQUIPMENTID], [ip], [Device])
+    VALUES (@LineId, @EquipmentId, @Ip, @Device);";
 
             using var conn = new SqlConnection(_targetConnectionString);
             var affectedRows = await conn.ExecuteAsync(sql, new
             {
                 request.LineId,
                 request.EquipmentId,
-                Ip = string.IsNullOrWhiteSpace(request.Ip) ? null : request.Ip.Trim()
+                Ip = string.IsNullOrWhiteSpace(request.Ip) ? null : request.Ip.Trim(),
+                Device = string.IsNullOrWhiteSpace(request.Device) ? null : request.Device.Trim()
             });
 
             if (affectedRows == 0)
             {
-                throw new InvalidOperationException("在 dbo.ip 找不到要更新的資料。");
+                throw new InvalidOperationException("無法儲存 dbo.ip 的資料。");
             }
         }
     }

@@ -26,5 +26,17 @@ namespace AutoRunDailyReport.Models
         public string? MESSubEQNoString { get; set; }
         public string? Vendor { get; set; }
         public string? Ip { get; set; }
+        public string? Device { get; set; }
+    }
+
+    public class SaveMetaSyncDetailRequest
+    {
+        public string MachineName { get; set; } = string.Empty;
+        public string LineId { get; set; } = string.Empty;
+        public string EquipmentId { get; set; } = string.Empty;
+        public string? Search { get; set; }
+        public bool FutureDeadline { get; set; }
+        public string? Ip { get; set; }
+        public string? Device { get; set; }
     }
 }

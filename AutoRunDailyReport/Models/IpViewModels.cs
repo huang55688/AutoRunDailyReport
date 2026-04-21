@@ -20,6 +20,7 @@ namespace AutoRunDailyReport.Models
         public string LineId { get; set; } = string.Empty;
         public string EquipmentId { get; set; } = string.Empty;
         public string? Ip { get; set; }
+        public string? Device { get; set; }
 
         public string GetRowKey()
         {
@@ -33,6 +34,7 @@ namespace AutoRunDailyReport.Models
         public string EquipmentId { get; set; } = string.Empty;
         public string? SearchLineId { get; set; }
         public string? Ip { get; set; }
+        public string? Device { get; set; }
     }
 
     public class EquipmentImportResult

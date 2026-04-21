@@ -105,6 +105,8 @@
                         <th>LINEID</th>
                         <th>EQUIPMENTID</th>
                         <th>IP</th>
+                        <th>Device</th>
+                        <th>操作</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -115,12 +117,13 @@
                             var rowCssClass = Model.HighlightedKeys.Contains(item.GetRowKey())
                                 ? "ip-row-highlight"
                                 : string.Empty;
+                            var formId = $"ip-form-{item.GetRowKey().Replace("|", "-")}";
 
                             <tr class="@rowCssClass">
                                 <td><code>@item.LineId</code></td>
                                 <td><code>@item.EquipmentId</code></td>
                                 <td>
-                                    <form asp-action="SaveIp" method="post" class="ip-inline-form">
+                                    <form id="@formId" asp-action="SaveIp" method="post" class="ip-inline-form">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="LineId" value="@item.LineId" />
                                         <input type="hidden" name="EquipmentId" value="@item.EquipmentId" />
@@ -130,8 +133,20 @@
                                                value="@item.Ip"
                                                class="form-control ip-input"
                                                placeholder="請輸入 IP" />
-                                        <button type="submit" class="btn ip-save-button">儲存</button>
                                     </form>
+                                </td>
+                                <td>
+                                    <input type="text"
+                                           name="Device"
+                                           value="@item.Device"
+                                           class="form-control ip-input"
+                                           placeholder="請輸入 Device"
+                                           form="@formId" />
+                                </td>
+                                <td>
+                                    <button type="submit"
+                                            class="btn ip-save-button"
+                                            form="@formId">儲存</button>
                                 </td>
                             </tr>
                         }
@@ -139,7 +154,7 @@
                     else
                     {
                         <tr>
-                            <td colspan="3" class="ip-empty-state">
+                            <td colspan="5" class="ip-empty-state">
                                 目前 dbo.ip 還沒有資料，請先搜尋候選 LINEID，再按匯入。
                             </td>
                         </tr>

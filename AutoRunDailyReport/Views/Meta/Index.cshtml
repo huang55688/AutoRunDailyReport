@@ -6,6 +6,7 @@
     var items = Model?.ToList() ?? new List<AutoRunDailyReport.Models.MesMachinesMetaDto>();
     var currentSearch = ViewBag.Search as string ?? string.Empty;
     var futureDeadline = ViewBag.FutureDeadline is bool enabled && enabled;
+    var expandedMachineName = ViewBag.ExpandedMachineName as string ?? string.Empty;
 }
 @functions {
     public string DisplayOrDash(string? value)
@@ -22,6 +23,16 @@
     {
         var detailCount = item.SyncDetails.Count;
         return detailCount <= 0 ? "查看同步資訊" : $"查看 {detailCount} 筆";
+    }
+
+    public List<string> GetMachineNos(AutoRunDailyReport.Models.MesMachinesMetaDto item)
+    {
+        return item.SyncDetails
+            .Select(detail => detail.MESMachineNoString)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     public string GetDeadlineBadgeClass(DateTime? deadline)
@@ -67,7 +78,7 @@
                     name="search"
                     value="@currentSearch"
                     class="form-control meta-search-input"
-                    placeholder="搜尋 Line 或 MESMachineName" />
+                    placeholder="模糊搜尋 Line 或 MESMachineName" />
                 @if (futureDeadline)
                 {
                     <input type="hidden" name="futureDeadline" value="true" />
@@ -119,17 +130,34 @@
                             {
                                 var item = items[index];
                                 var detailId = $"meta-detail-{index}";
+                                var isExpanded = !string.IsNullOrWhiteSpace(expandedMachineName)
+                                    && string.Equals(expandedMachineName, item.MESMachineName, StringComparison.OrdinalIgnoreCase);
+                                var hiddenAttribute = isExpanded ? null : "hidden";
+                                var machineNos = GetMachineNos(item);
 
                                 <tr>
-                                    <td class="meta-line-cell">@item.MESMachineName</td>
+                                    <td class="meta-line-cell">
+                                        <div class="meta-machine-name-stack">
+                                            <span class="meta-machine-name-text">@item.MESMachineName</span>
+                                            @if (machineNos.Any())
+                                            {
+                                                <div class="meta-machine-no-list">
+                                                    @foreach (var machineNo in machineNos)
+                                                    {
+                                                        <span class="meta-machine-no-chip">@machineNo</span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </td>
                                     <td class="meta-sync-summary-cell">
                                         @if (HasMachineDetail(item))
                                         {
                                             <button
                                                 type="button"
-                                                class="btn meta-expand-toggle"
+                                                class="btn meta-expand-toggle @(isExpanded ? "is-open" : string.Empty)"
                                                 data-target="@detailId"
-                                                aria-expanded="false">
+                                                aria-expanded="@(isExpanded ? "true" : "false")">
                                                 <span class="meta-expand-toggle-text">@GetMachineDetailSummary(item)</span>
                                             </button>
                                         }
@@ -164,7 +192,7 @@
 
                                 @if (HasMachineDetail(item))
                                 {
-                                    <tr id="@detailId" class="meta-expand-row" hidden>
+                                    <tr id="@detailId" class="meta-expand-row" hidden="@hiddenAttribute">
                                         <td colspan="@detailColumnCount" class="meta-expand-row-cell">
                                             <div class="meta-expand-panel">
                                                 <div class="meta-expand-panel-title">同步資訊</div>
@@ -176,16 +204,48 @@
                                                                 <th>MESSubEQNo_String</th>
                                                                 <th>Vendor</th>
                                                                 <th>IP</th>
+                                                                <th>Device</th>
+                                                                <th>操作</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
-                                                            @foreach (var detail in item.SyncDetails)
+                                                            @for (var detailIndex = 0; detailIndex < item.SyncDetails.Count; detailIndex++)
                                                             {
+                                                                var detail = item.SyncDetails[detailIndex];
+                                                                var detailFormId = $"meta-sync-form-{index}-{detailIndex}";
+
                                                                 <tr>
                                                                     <td>@DisplayOrDash(detail.MESMachineNoString)</td>
                                                                     <td>@DisplayOrDash(detail.MESSubEQNoString)</td>
                                                                     <td>@DisplayOrDash(detail.Vendor)</td>
-                                                                    <td>@DisplayOrDash(detail.Ip)</td>
+                                                                    <td>
+                                                                        <form id="@detailFormId" asp-action="SaveSyncDetail" method="post" class="meta-sync-edit-form">
+                                                                            @Html.AntiForgeryToken()
+                                                                            <input type="hidden" name="MachineName" value="@item.MESMachineName" />
+                                                                            <input type="hidden" name="LineId" value="@detail.MESMachineNoString" />
+                                                                            <input type="hidden" name="EquipmentId" value="@detail.MESSubEQNoString" />
+                                                                            <input type="hidden" name="Search" value="@currentSearch" />
+                                                                            <input type="hidden" name="FutureDeadline" value="@futureDeadline" />
+                                                                            <input type="text"
+                                                                                   name="Ip"
+                                                                                   value="@detail.Ip"
+                                                                                   class="form-control meta-sync-edit-input"
+                                                                                   placeholder="請輸入 IP" />
+                                                                        </form>
+                                                                    </td>
+                                                                    <td>
+                                                                        <input type="text"
+                                                                               name="Device"
+                                                                               value="@detail.Device"
+                                                                               class="form-control meta-sync-edit-input"
+                                                                               placeholder="請輸入 Device"
+                                                                               form="@detailFormId" />
+                                                                    </td>
+                                                                    <td class="meta-sync-action-cell">
+                                                                        <button type="submit"
+                                                                                class="btn meta-sync-save-button"
+                                                                                form="@detailFormId">儲存</button>
+                                                                    </td>
                                                                 </tr>
                                                             }
                                                         </tbody>
